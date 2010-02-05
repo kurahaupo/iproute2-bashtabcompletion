@@ -1,0 +1,26 @@
+INSTALLATION:
+
+    To install, just copy src/iproute2 to /etc/bash_completion.d/iproute2.
+
+    Some day we may add a Makefile to generate .deb and/or .rpm packages; feel
+    free to add it, of course.
+
+BUGS:
+
+    If you miss an expected word like "dev", the parser may become confused.
+
+    Where completions aren't implemented for a particular state, it spits out
+    noisy debugging messages. (Ordinary users probably won't want these.)
+
+    Completions for some subcommands are not implemented yet.
+
+    Hostnames are legal where addresses are expected, but tabcompletion does
+    not cope with them. It doesn't even read from /etc/hosts.
+
+    When the current word has a colon in it, bash uses the text returned by the
+    tabcompletion function and appends it after the last colon, rather than
+    replacing the whole word. This makes it particularly tricky to tabcomplete
+    IPv6 addresses.  We work around this, but it might break in future.
+
+    Some things really don't have sensible completions, but we try anyway.
+
