@@ -173,7 +173,7 @@ __complete_address()
 
     fi
 
-    __ip_debug "                    Completed last-term=$last_term (last-term-definitely-complete=$last_term_complete) no-space=$nsp compreply=[$(__ip_strtrunc 20 "${COMPREPLY[*]}")] (count=${#COMPREPLY[*]})"
+    __ip_debug "Completed last-term=$last_term (last-term-definitely-complete=$last_term_complete) no-space=$nsp compreply=[$(__ip_strtrunc 20 "${COMPREPLY[*]}")] (count=${#COMPREPLY[*]})"
 
     ((${#COMPREPLY[@]} == 0)) && {
         __ip_debug "No matches for '$cur'"
@@ -259,23 +259,23 @@ _ip()
         (addr_?:t*)     expect=(PREFIX) ;; # to
         (addr_?:v*)     expect=(LFT)    ;; # valid_lft
 
-        (link:l*)       seen=link_show expect=(DEVICE) ;;  # list (alias for show)
-        (link:se*)      seen=link_set  expect=(DEVICE) ;;
-        (link:sh*)      seen=link_show expect=(DEVICE) ;;
+        (link:l*)       seen=link_L expect=(DEVICE) ;;  # list (alias for show)
+        (link:se*)      seen=link_S  expect=(DEVICE) ;;
+        (link:sh*)      seen=link_L expect=(DEVICE) ;;
 
-        (link_set:ad*)  expect=(LLADDR) ;; # address
-        (link_set:al*)  expect=(ONOFF)  ;; # allmulticast
-        (link_set:ar*)  expect=(ONOFF)  ;; # arp
-        (link_set:b*)   expect=(LLADDR) ;; # broadcast
-        (link_set:d*)                   ;; # down
-        (link_set:dy*)  expect=(ONOFF)  ;; # dynamic
-        (link_set:mt*)  expect=(NUMBER32) ;; # mtu
-        (link_set:mu*)  expect=(ONOFF)  ;; # multicast
-        (link_set:n*)   expect=(NEWNAME) ;; # name
-        (link_set:p*)   expect=(ONOFF)  ;; # promisc
-        (link_set:tr*)  expect=(ONOFF)  ;; # trailers
-        (link_set:tx*)  expect=(NUMBER8) ;; # txqueuelen
-        (link_set:u*)                   ;; # up
+        (link_S:ad*)    expect=(LLADDR)  ;; # address
+        (link_S:al*)    expect=(ONOFF)   ;; # allmulticast
+        (link_S:ar*)    expect=(ONOFF)   ;; # arp
+        (link_S:b*)     expect=(LLADDR)  ;; # broadcast
+        (link_S:d*)                      ;; # down
+        (link_S:dy*)    expect=(ONOFF)   ;; # dynamic
+        (link_S:mt*)    expect=(NUMBER32) ;; # mtu
+        (link_S:mu*)    expect=(ONOFF)   ;; # multicast
+        (link_S:n*)     expect=(NEWNAME) ;; # name
+        (link_S:p*)     expect=(ONOFF)   ;; # promisc
+        (link_S:tr*)    expect=(ONOFF)   ;; # trailers
+        (link_S:tx*)    expect=(NUMBER8) ;; # txqueuelen
+        (link_S:u*)                      ;; # up
 
         (maddr:a*)      seen=maddr_add  expect=(MADDR =dev DEVICE) ;;
         (maddr:d*)      seen=maddr_del  expect=(MADDR =dev DEVICE) ;;
@@ -314,7 +314,7 @@ _ip()
         (route_L:p*)    expect=(RTPROTO) ;; # proto
         (route_L:r*)    expect=(PREFIX) ;; # root
         (route_L:s*)    expect=(SCOPE)  ;; # scope
-        (route_L:ta*)   expect=(TABLE)  ;; # table
+        (route_L:ta*)   expect=(TABLE+)  ;; # table
         (route_L:ty*)   expect=(RTYPE)  ;; # type
 
         (route_G:f*)    expect=(ADDR =iif IFACE) ;; # from
@@ -351,14 +351,31 @@ _ip()
         (route_P:we*)   expect=(NUMBER16) ;; # weight
         (route_P:wi*)   expect=(NUMBER8) ;; # window
 
-        (rule:*)        seen=rule_${w:0:1} ;;
+        (rule:[ad]*)    seen=rule_A     ;; # add/del
+        (rule:[lfs]*)   seen=rule_L     ;; # flush/list/show
+        (rule_A:d*)     expect=(DEVICE) ;; # dev
+        (rule_A:fr*)    expect=(PREFIX) ;; # from
+        (rule_A:fw*)    expect=(NUMBER32) ;; # fwmark
+        (rule_A:g*)     expect=(NUMBER) ;; # goto
+        (rule_A:i*)     expect=(DEVICE) ;; # iif
+        (rule_A:l*)     expect=(TABLE)  ;; # lookup=table
+        (rule_A:n*)                     ;; # not
+        (rule_A:pre*)   expect=(NUMBER) ;; # pref
+        (rule_A:pri*)   expect=(NUMBER) ;; # prio
+        (rule_A:pro*)                   ;; # prohibit
+        (rule_A:rea*)   expect=(REALM)  ;; # realm
+        (rule_A:rej*)                   ;; # reject
+        (rule_A:ta*)    expect=(TABLE)  ;; # table
+        (rule_A:to)     expect=(PREFIX) ;; # to
+        (rule_A:tos)    expect=(TOS)    ;; # tos
+        (rule_A:u* )                    ;; # unreachable
 
         (tunnel:*)      seen=tunnel_${w:0:1} ;;
 
         (DEVICE:*)      save_device=$w  ;;
         ([A-Z]*:*)      ;;
 
-        (*)             echo >&2 "COMPLETION: Lost sync?" ; return 1 ;;
+        (*)             echo >&2 "COMPLETION: Lost sync? ... $context $w" ; return 1 ;;
 
         esac
         : ${expect:=${seen%/*}}
@@ -370,41 +387,66 @@ _ip()
     local nsp=false or_digits=false max_num=0 min_num=0
 
     case $expect in
-    (START) options=( addr link maddr monitor mroute neigh ntable route rule tunnel xfrm \
-                      --details --family --oneline --resolve --statistics --timestamp --verbose --Version \
-                      -0 -4 -6 -d -f -o -r -s -t -v -V ) ;;
+    (START) options=( addr link maddr monitor mroute neigh ntable route rule \
+                      tunnel xfrm --details --family --oneline --resolve \
+                      --statistics --timestamp --verbose --Version -0 -4 -6 \
+                      -d -f -o -r -s -t -v -V ) ;;
 
     (addr)  options=( add change flush del list show replace monitor ) ;;
-    (addr_A) options=( anycast broadcast deprecated dev dynamic home label nodad peer permanent preferred_lft primary scope secondary tentative to valid_lft ) ;;
-    (addr_D) options=( dev ) ;;
-    (addr_S) options=( anycast broadcast deprecated dev dynamic home label nodad peer permanent primary scope secondary tentative to ) ;;
+    (addr_A)
+            options=( anycast broadcast deprecated dev dynamic home label \
+                      nodad peer permanent preferred_lft primary scope \
+                      secondary tentative to valid_lft ) ;;
+    (addr_D)
+            options=( dev ) ;;
+    (addr_S)
+            options=( anycast broadcast deprecated dev dynamic home label \
+                      nodad peer permanent primary scope secondary tentative \
+                      to ) ;;
 
     (link)  options=( list show set ) ;;
-    (link_set)
+    (link_S)
             options=( address allmulticast arp broadcast down dynamic mtu \
-                        multicast name promisc trailers txqueuelen up ) ;;
+                      multicast name promisc trailers txqueuelen up ) ;;
 
     (maddr) options=( add del list show ) ;;
+
     (monitor)
             options=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
+
     (mroute)
             options=( list show ) ;;
-    (neigh) options=( add change del replace ) ;;
+
+    (neigh)
+            options=( add change del replace ) ;;
+
     (ntable)
             options=( change ) ;;
-    (route) options=( add append change del flush get list show replace monitor ) ;;
-    (route_G) options=( from oif tos ) ;;
-    (route_L) options=( root match exact table proto type scope ) ;;  # RTSELECTOR
-    (route_A) options=( via dev weight unicast local broadcast multicast \
-                        throw unreachable prohibit blackhole nat default \
-                        ...PREFIX... ) ;;  # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
-    (route_P) options=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
-                        proto realms rto_min rtt rttvar scope src ssthresh \
-                        table tos via weight window ) ;;  # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
 
-    (rule)  options=( add del flush list ) ;;
+    (route) options=( add append change del flush get list show replace monitor ) ;;
+    (route_G)
+            options=( from oif tos ) ;;
+    (route_L)   # RTSELECTOR
+            options=( root match exact table proto type scope ) ;;
+    (route_A)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
+            options=( via dev weight unicast local broadcast multicast \
+                      throw unreachable prohibit blackhole nat default \
+                      ...PREFIX... ) ;;
+    (route_P)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
+            options=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
+                      proto realms rto_min rtt rttvar scope src ssthresh \
+                      table tos via weight window ) ;;
+
+    (rule)  options=( add del flush list show ) ;;
+    (rule_A)
+            options=( dev from fwmark goto iif lookup not pref prio prohibit \
+                      realms reject table to tos unreachable ) ;;
+    (rule_L)
+            options=() nsp=false ;;
+
     (tunnel)
             options=( add change del list show ) ;;
+
     (xfrm)  options=( policy state monitor ) ;;
 
     (=*)    options=( ${expect#=} ) ;;
@@ -415,21 +457,36 @@ _ip()
     (FAMILY)
             options=( inet inet6 ipx dnet link ) ;;
     (LFT)   options=( forever ) or_digits=true max_num=255 ;;
-    (NUMBER) options=() or_digits=true ;;
-    (NUMBER8) options=() or_digits=true max_num=0xff ;;
-    (NUMBER16) options=() or_digits=true max_num=0xffff ;;
-    (NUMBER32) options=() or_digits=true max_num=0xffffffff ;;
-    (NUMBER31S) options=() or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
+    (NUMBER)
+            options=() or_digits=true ;;
+    (NUMBER8)
+            options=() or_digits=true max_num=0xff ;;
+    (NUMBER16)
+            options=() or_digits=true max_num=0xffff ;;
+    (NUMBER32)
+            options=() or_digits=true max_num=0xffffffff ;;
+    (NUMBER31S)
+            options=() or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
     (ONOFF) options=( on off ) ;;
+    (REALM) options=( '$(__slurp /etc/iproute2/rt_realms)' )
+            or_digits=true max_num=0xff ;;
     (SCOPE) options=( '$( __slurp /etc/iproute2/rt_scopes )' ) ;;
     (ADDR)  __complete_address -4 -6 $cur ; return $? ;;
     (MADDR) __complete_address -m -4 -6 $cur ; return $? ;;
-    (LLADDR) options=( 00:00:00:00:00:00 ... ) ;;
-    (PREFIX) __complete_address -P -4 -6 $cur ; return $? ;;
+    (LLADDR)
+            options=( 00:00:00:00:00:00 ... ) ;;
+    (PREFIX)
+            __complete_address -P -4 -6 $cur ; return $? ;;
     (LABEL) options=( $save_device: ) nsp=true ;;
-    (TABLE) options=( all default local main ) or_digits=true max_num=255 ;;
-    (RTYPE) options=( blackhole broadcast local multicast nat prohibit throw unicast unreachable ) ;;
-    (RTPROTO) options=( boot kernel static ) or_digits=true max_num=255 ;;
+    (TABLE) options=( default local main '$( __slurp /etc/iproute2/rt_tables )' )
+            or_digits=true max_num=255 ;;
+    (TABLE+)
+            options=( all default local main '$( __slurp /etc/iproute2/rt_tables )' )
+            or_digits=true max_num=255 min_num=-2 ;;
+    (RTYPE) options=( blackhole broadcast local multicast nat prohibit throw \
+                      unicast unreachable ) ;;
+    (RTPROTO)
+            options=( boot kernel static ) or_digits=true max_num=255 ;;
     (TOS)   options=( inherit ) or_digits=true max_num=255 ;;
 
     (K_options) ;;
@@ -439,8 +496,10 @@ _ip()
     if $or_digits && [[ ${cur#-} != *[^0-9]* ]]
     then
         [[ $cur != '-' ]] && options+=( ${cur} )
-        if (((cur*10 <= max_num || !max_num) && cur*10 >= min_num))
-        then options+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
+        if (( (cur*10 <= max_num || cur > 0 && !${#max_num}) &&
+              (cur*10 >= min_num || cur < 0 && !${#min_num}) ))
+        then options+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 \
+                        ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
         else nsp=false
         fi
     fi
