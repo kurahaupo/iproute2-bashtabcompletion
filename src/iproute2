@@ -236,10 +236,10 @@ _ip()
         (addr:a*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # add
         (addr:c*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # change
         (addr:d*)       seen=addr_D expect=(ADDR =dev DEVICE) ;; # del
-        (addr:f*)       seen=addr_S expect=(     =dev DEVICE) ;; # flush
+        (addr:f*)       seen=addr_S                           ;; # flush
+        (addr:l*)       seen=addr_S                           ;; # list (alias for show)
         (addr:r*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # replace
-        (addr:s*)       seen=addr_S expect=(     =dev DEVICE) ;; # show
-        (addr:l*)       seen=addr_S expect=(     =dev DEVICE) ;; # list (alias for show)
+        (addr:s*)       seen=addr_S                           ;; # show
 
         (addr_?:a*)     expect=(ADDR)   ;; # anycast
         (addr_?:b*)     expect=(ADDR)   ;; # broadcast
@@ -384,7 +384,7 @@ _ip()
     done
     w=$cur
 
-    local nsp=false or_digits=false max_num=0 min_num=0
+    local nsp=false or_digits=false max_num= min_num=
 
     case $expect in
     (START) options=( addr link maddr monitor mroute neigh ntable route rule \
@@ -496,8 +496,8 @@ _ip()
     if $or_digits && [[ ${cur#-} != *[^0-9]* ]]
     then
         [[ $cur != '-' ]] && options+=( ${cur} )
-        if (( (cur*10 <= max_num || cur > 0 && !${#max_num}) &&
-              (cur*10 >= min_num || cur < 0 && !${#min_num}) ))
+        if (( (!${#max_num} || cur*10 <= max_num) &&
+              (!${#min_num} || cur*10 >= min_num) ))
         then options+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 \
                         ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
         else nsp=false
