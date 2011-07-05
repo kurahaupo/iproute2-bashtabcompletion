@@ -10,9 +10,9 @@
 # any later version as published by the Free Software Foundation.
 #
 
-have ip &&
-{
-__slurp()
+[[ $(type -t have) != function ]] || have ip || return
+
+__ip_slurp()
 {
     sed -e '
              s/#.*//
@@ -39,7 +39,7 @@ __ip_strtrunc()
     ((${#p} > w)) && p="${p:0:w-3}..."
 }
 
-__complete_address()
+__ip_complete_address()
 {
     local maybe_ipv4=false maybe_ipv6=false maybe_prefix=false nsp=true \
           require_prefix=false possibly_complete=false definitely_complete=false last_term_complete=false \
@@ -468,20 +468,20 @@ _ip()
     (NUMBER31S)
             options=() or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
     (ONOFF) options=( on off ) ;;
-    (REALM) options=( '$(__slurp /etc/iproute2/rt_realms)' )
+    (REALM) options=( '$(__ip_slurp /etc/iproute2/rt_realms)' )
             or_digits=true max_num=0xff ;;
-    (SCOPE) options=( '$( __slurp /etc/iproute2/rt_scopes )' ) ;;
-    (ADDR)  __complete_address -4 -6 $cur ; return $? ;;
-    (MADDR) __complete_address -m -4 -6 $cur ; return $? ;;
+    (SCOPE) options=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
+    (ADDR)  __ip_complete_address -4 -6 $cur ; return $? ;;
+    (MADDR) __ip_complete_address -m -4 -6 $cur ; return $? ;;
     (LLADDR)
             options=( 00:00:00:00:00:00 ... ) ;;
     (PREFIX)
-            __complete_address -P -4 -6 $cur ; return $? ;;
+            __ip_complete_address -P -4 -6 $cur ; return $? ;;
     (LABEL) options=( $save_device: ) nsp=true ;;
-    (TABLE) options=( default local main '$( __slurp /etc/iproute2/rt_tables )' )
+    (TABLE) options=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
             or_digits=true max_num=255 ;;
     (TABLE+)
-            options=( all default local main '$( __slurp /etc/iproute2/rt_tables )' )
+            options=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
             or_digits=true max_num=255 min_num=-2 ;;
     (RTYPE) options=( blackhole broadcast local multicast nat prohibit throw \
                       unicast unreachable ) ;;
@@ -512,7 +512,6 @@ _ip()
 }
 COMP_VERBOSE=false
 complete -F _ip -o nospace ip
-}
 
 return
 
@@ -550,9 +549,9 @@ where  OBJECT := { link
 
 Usage: ip addr { add
                | change
-               | replace} IFADDR dev STRING
-                                 [ LIFETIME ]
-                                 [ CONFFLAG-LIST]
+               | replace } IFADDR dev STRING
+                                  [ LIFETIME ]
+                                  [ CONFFLAG-LIST]
        ip addr del IFADDR dev STRING
        ip addr { show
                | flush } [ dev STRING ]
