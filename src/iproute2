@@ -39,6 +39,12 @@ __ip_strtrunc()
     ((${#p} > w)) && p="${p:0:w-3}..."
 }
 
+__ip_debug() { : ; }
+__ip_debug_parsing_state() { : ; }
+__ip_debug_unexpected() { : ; }
+__ip_error() { : ; }
+__ip_warning() { : ; }
+
 __ip_complete_address()
 {
     local maybe_ipv4=false maybe_ipv6=false maybe_prefix=false nsp=true \
@@ -59,8 +65,11 @@ __ip_complete_address()
     esac ; shift ; done
     local cur=$1
 
+    __ip_debug "Completing address starting with '$cur': ipv4=$maybe_ipv4 ipv6=$maybe_ipv6 prefix=$maybe_prefix/$require_prefix "
+
     if $require_prefix && [[ $cur = d* || $cur = ::/0 || $cur = 0.0.0.0/0 ]]
     then
+        __ip_warning "Not expecting a prefix"
         COMPREPLY=(default\ )
         return 0
     fi
@@ -74,7 +83,7 @@ __ip_complete_address()
 
     # sanity check
     $maybe_ipv4 || $maybe_ipv6 || {
-        __ip_debug "Neither IPv4 nor IPv6 possible"
+        __ip_warning "Invalid address; neither IPv4 nor IPv6 possible"
         return 1
     }
 
@@ -118,17 +127,17 @@ __ip_complete_address()
         $maybe_ipv6 && max_pref_len=128
 
         [[ $pref_len = *[^0-9]* ]] && {
-            __ip_debug "Prefix-length '$pref_len' is non-numeric"
+            __ip_error "Prefix-length '$pref_len' is non-numeric"
             return 1
         }
         (( pref_len > max_pref_len )) && {
-            __ip_debug "Prefix-length '$pref_len' is greater than $max_pref_len"
+            __ip_error "Prefix-length '$pref_len' is greater than $max_pref_len"
             return 1
         }
 
         if (( pref_len * 10 > max_pref_len ))
         then
-            $COMP_VERBOSE && echo >&2 "Prefix length is greater than ${max_pref_len%?}, therefore we're finished"
+            __ip_warning "Prefix length is greater than ${max_pref_len%?}, therefore we're finished"
             nsp=false
             COMPREPLY+=($cur)
         else
@@ -193,29 +202,49 @@ __ip_complete_address()
 
 _ip()
 {
-    local objecttype command i
+    local -a expect
+    local cur i options prv seen
 
     COMPREPLY=()
-    local cur=$(_get_cword)
-    local options
+
+    if $COMP_VERBOSE
+    then
+        echo >&2 $'\e7\e[A\e[999I\e[43;30m\e[1J\e[H'"Completion START: WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD"
+        trap " trap RETURN ; echo -n >&2 'Completion END: COMPREPLY=('\${COMPREPLY[*]}')'\$'\\e[49;39;0m\\e8' " RETURN
+        __ip_debug() { echo >&2 "Completion $*" ; }
+        __ip_debug_parsing_state() { echo >&2 "Completion STATE $*word[$i]: seen=$seen prev=$prv curr=$cur expect=(${expect[*]})" ; }
+        __ip_debug_unexpected() { echo >&2 "Completion UNEXPECTED $*" ; }
+        __ip_error() { echo >&2 "Completion ERROR $*" ; }
+        __ip_warning() { echo >&2 "Completion WARNING $*" ; }
+    else
+        __ip_debug() { : ; }
+        __ip_debug_parsing_state() { : ; }
+        __ip_debug_unexpected() { : ; }
+        __ip_error() { local t="$*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; }
+        __ip_warning() { : ; }
+    fi
 
     # Establish parsing state:
-    local seen=START expect=(START) i w
-    $COMP_VERBOSE && echo >&2 "COMPLETION: START"
+    seen=START expect=(START) cur="(start-of-line)"
+    __ip_debug_parsing_state
     for ((i=1;i<COMP_CWORD;i++)) do
-        w=${COMP_WORDS[i]}
+        prv=$cur cur=${COMP_WORDS[i]}
+
         context=$expect ; unset expect[0] ; expect=("${expect[@]}")
 
+        __ip_debug "Matching on \"$expecting:$cur\""
         # If we're expecting a specific word
-        if [[ $context = ="$w"* ]] ; then
+        if [[ $context = ="$cur"* ]] ; then
             # process word based on seen state rather than on the explicit expectation
             context=$seen
         elif [[ $context = =* ]] ; then
             # didn't find it!
+            __ip_error "Expecting '${context#=}' instead of '$cur'"
             return 1
         fi
 
-        case $context:$w in
+        __ip_debug "Matching on \"$seen:$cur\""
+        case $context:$cur in
 
         (START:-f*\
         |START:--f*)    expect=(FAMILY START) ;;
@@ -297,7 +326,7 @@ _ip()
         (neigh_A:*)     expect=(ADDR) ;;
         (neigh_S:*)     ;;
 
-        (ntable:*)      seen=ntable_$w ;;
+        (ntable:*)      seen=ntable_$cur ;;
 
         (route:a*)      seen=route_A    ;; # add/append
         (route:c*)      seen=route_A    ;; # change
@@ -370,19 +399,19 @@ _ip()
         (rule_A:tos)    expect=(TOS)    ;; # tos
         (rule_A:u* )                    ;; # unreachable
 
-        (tunnel:*)      seen=tunnel_${w:0:1} ;;
+        (tunnel:*)      seen=tunnel_${cur:0:1} ;;
 
-        (DEVICE:*)      save_device=$w  ;;
+        (DEVICE:*)      save_device=$cur  ;;
         ([A-Z]*:*)      ;;
 
-        (*)             echo >&2 "COMPLETION: Lost sync? ... $context $w" ; return 1 ;;
+        (*) __ip_error "Lost sync? seen=$seen expect=$context cur=$cur" ; return 1 ;;
 
         esac
         : ${expect:=${seen%/*}}
 
-        $COMP_VERBOSE && echo >&2 "COMPLETION: INDEX=$i WORD=$w SEEN=$seen EXPECT=(${expect[*]})"
+        __ip_debug_parsing_state
     done
-    w=$cur
+    prv=$cur cur=$(_get_cword)
 
     local nsp=false or_digits=false max_num= min_num=
 
@@ -492,6 +521,7 @@ _ip()
     (K_options) ;;
     (*)     options=( "Undefined:$expect" )
     esac
+    __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits cur=$cur"
 
     if $or_digits && [[ ${cur#-} != *[^0-9]* ]]
     then
