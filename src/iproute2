@@ -24,19 +24,12 @@ __ip_slurp()
             ' $1
 }
 
-__ip_debug()
-{
-    local t="$*"
-    local l=${#t}
-    local e=$'\e'
-    echo >&2 -n "$e[1K$e[33m$t$e[39m$e[${l}D"
-}
-
 __ip_strtrunc()
 {
     local w=$1 ; shift
     local p="$*"
     ((${#p} > w)) && p="${p:0:w-3}..."
+    echo "$p"
 }
 
 __ip_debug() { : ; }
@@ -69,7 +62,7 @@ __ip_complete_address()
 
     if $require_prefix && [[ $cur = d* || $cur = ::/0 || $cur = 0.0.0.0/0 ]]
     then
-        __ip_warning "Not expecting a prefix"
+        __ip_warning "Expecting a non-default prefix"
         COMPREPLY=(default\ )
         return 0
     fi
@@ -203,7 +196,7 @@ __ip_complete_address()
 _ip()
 {
     local -a expect
-    local cur i options prv seen
+    local cur i options seen
 
     COMPREPLY=()
 
@@ -212,7 +205,7 @@ _ip()
         echo >&2 $'\e7\e[A\e[999I\e[43;30m\e[1J\e[H'"Completion START: WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD"
         trap " trap RETURN ; echo -n >&2 'Completion END: COMPREPLY=('\${COMPREPLY[*]}')'\$'\\e[49;39;0m\\e8' " RETURN
         __ip_debug() { echo >&2 "Completion $*" ; }
-        __ip_debug_parsing_state() { echo >&2 "Completion STATE $*word[$i]: seen=$seen prev=$prv curr=$cur expect=(${expect[*]})" ; }
+        __ip_debug_parsing_state() { echo >&2 "Completion STATE $*word[$i]: seen=$seen curr=$cur expect=(${expect[*]})" ; }
         __ip_debug_unexpected() { echo >&2 "Completion UNEXPECTED $*" ; }
         __ip_error() { echo >&2 "Completion ERROR $*" ; }
         __ip_warning() { echo >&2 "Completion WARNING $*" ; }
@@ -228,7 +221,7 @@ _ip()
     seen=START expect=(START) cur="(start-of-line)"
     __ip_debug_parsing_state
     for ((i=1;i<COMP_CWORD;i++)) do
-        prv=$cur cur=${COMP_WORDS[i]}
+        cur=${COMP_WORDS[i]}
 
         context=$expect ; unset expect[0] ; expect=("${expect[@]}")
 
@@ -401,17 +394,17 @@ _ip()
 
         (tunnel:*)      seen=tunnel_${cur:0:1} ;;
 
-        (DEVICE:*)      save_device=$cur  ;;
+        (DEVICE:*)      save_device=$cur ;;
         ([A-Z]*:*)      ;;
 
-        (*) __ip_error "Lost sync? seen=$seen expect=$context cur=$cur" ; return 1 ;;
+        (*)             __ip_error "Lost sync? seen=$seen expect=$context cur=$cur" ; return 1 ;;
 
         esac
         : ${expect:=${seen%/*}}
 
         __ip_debug_parsing_state
     done
-    prv=$cur cur=$(_get_cword)
+    cur=$(_get_cword)
 
     local nsp=false or_digits=false max_num= min_num=
 
