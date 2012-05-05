@@ -931,5 +931,5 @@ _ip() {
     unset ${!__ip_seen_*}
     return 1
 }
-COMP_VERBOSE=false
+#COMP_VERBOSE=false
 complete -F _ip -o nospace ip
