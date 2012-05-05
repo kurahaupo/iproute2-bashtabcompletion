@@ -1,6 +1,38 @@
+INTRODUCTION:
+
+    The iproute2 suite has the single "ip" command as its primary interface,
+    however this "ip" command is really about 50 commands in one.
+    
+    It is generally used in the form
+
+        ip OBJECT ACTION [FIRSTARG ARGS...]
+
+    where OBJECT is one of "addr", "addrlabel", "link", "maddr", "monitor",
+    "mroute", "neigh", "ntable", "route", "rule", "tunnel", "tuntap" or "xfrm",
+    and ACTION is one of "add", "del" (delete), "rep" (replace), "list" (or
+    "show") or a specific action that applies only to a specific type of
+    object.
+
+    The enumeration of possible ARGS is therefore a highly complicated matter,
+    and that's where command-completion endeavours to be useful.
+
+    Usually ARGS consist of a series of tags, some of which are followed by a
+    value such as an IP address or a device name. Often there is an optional
+    FIRSTARG which is a value of some expected type, however that's (usually)
+    just a shorthand for the appropriate tag followed by that value. In reality
+    the FIRSTARG can appear anywhere in the list; in part this accounts for the
+    somewhat ambivalent error messages that the ip command produces, often along
+    the lines of
+
+        Error: either "dev" is duplicate, or "lo" is a garbage.
+
+    There are also about a dozen global options which can precede OBJECT
+
 INSTALLATION:
 
     To install, just copy src/iproute2 to /etc/bash_completion.d/iproute2.
+
+TODO:
 
     Some day we may add a Makefile to generate .deb and/or .rpm packages; feel
     free to add it, of course.
