@@ -24,6 +24,28 @@ __ip_slurp()
             ' $1
 }
 
+# Check that a decimal number is between specified bounds
+__ip_check_range()
+{
+    local num=$1 min=$2 max=$3 dec=$5 tmp=
+    [[ $num = -* ]] && num=${num#-} tmp=$min min=$max max=$tmp
+    [[ $num = *.*.* || $num = *[^.0-9]* || ( $num = *.* && $dec = false ) ]] && return 2
+    local numw=${num%.*} numf=${num#$numw}
+    local maxw=${max%.*} maxf=${max#$maxw}
+    local minw=${min%.*} minf=${max#$minw}
+    [[ $min = -* ]] && minw=0 minf=
+    [[ $max = -* ]] && return 1
+    if [[ -n $min ]] ; then
+        (( numw < minw )) && return 1
+        (( numw == minw )) && [[ $numf -lt $minf ]] && return 1
+    fi
+    if [[ -n $max ]] ; then
+        (( numw > maxw )) && return 1
+        (( numw == maxw )) && [[ $numf -gt $maxf ]] && return 1
+    fi
+    return 0
+}
+
 __ip_strtrunc()
 {
     local w=$1 ; shift
@@ -131,8 +153,6 @@ __ip_complete_address()
         local last_term=${cur##*[:.]}
 
         if  # is last word of address complete?
-            { $accept_ipv6 && [[ $last_term = [0-9a-f][0-9a-f][0-9a-f][0-9a-f] ]] ; } ||
-            { $accept_ipv4 &&
                 [[ $last_term != *[^0-9]* &&
                    $last_term = [0-9]* ]] &&
                 (( last_term >= 26 ||
@@ -191,338 +211,891 @@ _ip()
     fi
 
     # Establish parsing state:
-    seen=START expect=(START) cur="(start-of-line)"
+    seen=START expect=() cur="(start-of-line)"
     __ip_debug_parsing_state
     for ((i=1;i<COMP_CWORD;i++)) do
         cur=${COMP_WORDS[i]}
 
-        expecting=$expect ; unset expect[0] ; expect=("${expect[@]}")
+        expecting=${expect[0]} ; unset expect[0] ; expect=("${expect[@]}")  # shift one item off the "expect" array
 
         __ip_debug "Matching on \"$expecting:$cur\""
-        # If we're expecting a specific word
-        if [[ $expecting = ="$cur"* ]] ; then
-            # process word based on seen state rather than on the explicit expectation
-            expecting=$seen
-        elif [[ $expecting = =* ]] ; then
-            # didn't find it!
-            __ip_error "Expecting '${expecting#=}' instead of '$cur'"
-            return 1
-        fi
-
-        __ip_debug "Matching \"$expecting:$cur\" with seen=$seen"
         case $expecting:$cur in
+        (DEVICE:?*) save_device=$cur ;;
+        (SUBDEVICE:?*) save_device=$cur ;;
+        (=$cur*:$cur) continue ;;
+        (=*)  __ip_error "Expecting '${expecting#=}' instead of '$cur'" ; return 1 ;;
 
+        (ADDR:*)      __ip_complete_address -46 $cur || return 1 ;;
+        (V4ADDR:*)    __ip_complete_address -4 $cur || return 1 ;;
+        (V6ADDR:*)    __ip_complete_address -6 $cur || return 1 ;;
+        (NUM_OR_V4ADDR:*) __ip_complete_address -4 $cur || return 1 ;;
+        (DEVICE:*)    COMPREPLY=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' ) ;;
+        (FAMILY:*)    COMPREPLY=( inet inet6 ipx dnet link ) ;;
+        (INT:*)       or_digits=true ;;
+        (INT/*:*)     or_digits=true min_num=0 max_num=$(((1<<${expect#*/})-1)) ;;
+        (INT:*:*:*)   or_digits=true i=${expect#*:} min_num=${i%:*} max_num=${i#*:} ;;
+        (LABEL:*)     COMPREPLY=( $save_device: ) ;;
+        (LFT:*)       COMPREPLY=( forever ) or_digits=true max_num=255 ;;
+        (LLADDR:*)    COMPREPLY=( 00:00:00:00:00:00 ... ) ;;
+        (LTYPE:*)     COMPREPLY=( can macvlan vlan ) ;;
+        (MADDR:*)     __ip_complete_address -m -4 -6 $cur ; return ;;
+        (MODE:*)      COMPREPLY=( bridge private vepa ) ;;
+        (NTNAME:*)    COMPREPLY=( '$(ip ntable list | sed -e "s/ *$//; /^ \|^$/d; s/.* //" | sort -u)' ) ;;
+        (NUD_STATE:*) COMPREPLY=( noarp permanent reachable stale ) ;;
+        (NUM:*)       or_decimal=true ;;
+        (NUM:*:*:*)   or_decimal=true i=${expect#*:} min_num=${i%:*} max_num=${i#*:} ;;
+        (ONOFF:*)     COMPREPLY=( on off ) ;;
+        (PREFIX:*)    __ip_complete_address -P -4 -6 $cur ; return ;;
+        (REALM:*)     COMPREPLY=( '$(__ip_slurp /etc/iproute2/rt_realms)' ) or_digits=true max_num=0xff ;;
+        (RTPROTO:*)   COMPREPLY=( boot kernel static ) or_digits=true max_num=255 ;;
+        (RTYPE:*)     COMPREPLY=( blackhole broadcast local multicast nat prohibit throw unicast unreachable ) ;;
+        (SCOPE:*)     COMPREPLY=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
+        (SUBDEVICE:*) COMPREPLY=( $save_device. ) ;;
+        (TABLE:*)     COMPREPLY=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 ;;
+        (TABLE+:*)    COMPREPLY=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 min_num=-2 ;;
+        (TTL:*)       COMPREPLY=( inherit ) or_digits=true min_num=1 max_num=255 ;;
+        (TOS:*)       COMPREPLY=( inherit ) or_digits=true min_num=0 max_num=99 ;;
+        (WORD:*)      [[ -n "$cur" ]] && __ip_debug "(label)" ;;
+        (*) false ;;
+        esac || { __ip_error "Expecting $expecting instead of '$cur'" ; return 1 ; }
+
+        __ip_debug "Matching on \"$seen:$cur\""
+        case $seen:$cur in
         (START:-f*\
-        |START:--f*)    expect=(FAMILY START) ;;
-        (START:-[46])   save_ipv=$cur ;;
-        (START:-*) ;;
+        |START:--f*)          expect=(FAMILY)  ;;
+        (START:-*)                                   ;;
 
-        (START:a*)      seen=addr ;;
-        (START:l*)      seen=link ;;
-        (START:ma*)     seen=maddr ;;
-        (START:mo*)     seen=monitor ;;
-        (START:mr*)     seen=mroute ;;
-        (START:ne*)     seen=neigh ;;
-        (START:nt*)     seen=ntable ;;
-        (START:ro*)     seen=route ;;
-        (START:ru*)     seen=rule ;;
-        (START:t*)      seen=tunnel ;;
-        (START:x*)      seen=xfrm ;;
+        (START:a*)      seen=addr                    ;;
+        (START:l*)      seen=link                    ;;
+        (START:mo*)     seen=monitor                 ;;
+        (START:mr*)     seen=mroute                  ;;
+        (START:m*)      seen=maddr                   ;;
+        (START:nt*)     seen=ntable                  ;;
+        (START:n*)      seen=neigh                   ;;
+        (START:ru*)     seen=rule                    ;;
+        (START:r*)      seen=route                   ;;
+        (START:t*)      seen=tunnel                  ;;
+        (START:x*)      seen=xfrm                    ;;
 
-        (addr:a*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # add
-        (addr:c*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # change
+        (addr:[acr]*)   seen=addr_A expect=(ADDR =dev DEVICE) ;; # add, change, replace
         (addr:d*)       seen=addr_D expect=(ADDR =dev DEVICE) ;; # del
-        (addr:f*)       seen=addr_S                           ;; # flush
-        (addr:l*)       seen=addr_S                           ;; # list (alias for show)
-        (addr:r*)       seen=addr_A expect=(ADDR =dev DEVICE) ;; # replace
-        (addr:s*)       seen=addr_S                           ;; # show
+        (addr:[fls]*)   seen=addr_S                  ;; # flush, list, show
 
-        (addr_?:a*)     expect=(ADDR)   ;; # anycast
-        (addr_?:b*)     expect=(ADDR)   ;; # broadcast
-        (addr_?:dep*)                   ;; # deprecated
-        (addr_?:dy*)                    ;; # dynamic
-        (addr_?:d*)     expect=(DEVICE) ;; # dev
-        (addr_?:h*)                     ;; # home
-        (addr_?:l*)     expect=(LABEL)  ;; # label
-        (addr_?:n*)                     ;; # nodad
-        (addr_?:per*)                   ;; # permanent
-        (addr_?:p*)     expect=(PREFIX) ;; # peer
-        (addr_?:pre*)   expect=(LFT)    ;; # preferred_lft
-        (addr_?:pri*)                   ;; # primary
-        (addr_?:se*)                    ;; # secondary
-        (addr_?:s*)     expect=(SCOPE)  ;; # scope
-        (addr_?:te*)                    ;; # tentative
-        (addr_?:t*)     expect=(PREFIX) ;; # to
-        (addr_?:v*)     expect=(LFT)    ;; # valid_lft
+        (addr_?:d[ey]*)                              ;; # deprecated, dynamic
+        (addr_?:[hn]*)                               ;; # home, nodad
+        (addr_?:per*)                                ;; # permanent
+        (addr_?:pri*)                                ;; # primary
+        (addr_?:[st]e*)                              ;; # secondary, tentative
+        (addr_?:[ab]*)              expect=(ADDR)    ;; # anycast, broadcast
+        (addr_?:d*)                 expect=(DEVICE)  ;; # dev
+        (addr_?:l*)                 expect=(LABEL)   ;; # label
+        (addr_?:pre*)               expect=(LFT)     ;; # preferred_lft
+        (addr_?:v*)                 expect=(LFT)     ;; # valid_lft
+        (addr_?:[pt]*)              expect=(PREFIX)  ;; # peer, to
+        (addr_?:s*)                 expect=(SCOPE)   ;; # scope
 
-        (link:l*)       seen=link_L expect=(DEVICE) ;;  # list (alias for show)
-        (link:se*)      seen=link_S  expect=(DEVICE) ;;
-        (link:sh*)      seen=link_L expect=(DEVICE) ;;
+        (link:a*)       seen+=_A    expect=(=link DEVICE =name SUBDEVICE) ;; # add
+        (link:d*)       seen+=_D                  ;; # delete
+        (link:l*)       seen+=_L    expect=(DEVICE)  ;; # list (alias for show)
+        (link:se*)      seen+=_S    expect=(DEVICE)  ;; # set
+        (link:sh*)      seen+=_L    expect=(DEVICE)  ;; # show
 
-        (link_S:ad*)    expect=(LLADDR)  ;; # address
-        (link_S:al*)    expect=(ONOFF)   ;; # allmulticast
-        (link_S:ar*)    expect=(ONOFF)   ;; # arp
-        (link_S:b*)     expect=(LLADDR)  ;; # broadcast
-        (link_S:d*)                      ;; # down
-        (link_S:dy*)    expect=(ONOFF)   ;; # dynamic
-        (link_S:mt*)    expect=(NUMBER32) ;; # mtu
-        (link_S:mu*)    expect=(ONOFF)   ;; # multicast
-        (link_S:n*)     expect=(NEWNAME) ;; # name
-        (link_S:p*)     expect=(ONOFF)   ;; # promisc
-        (link_S:tr*)    expect=(ONOFF)   ;; # trailers
-        (link_S:tx*)    expect=(NUMBER8) ;; # txqueuelen
-        (link_S:u*)                      ;; # up
+        (link_A:a*)                 expect=(ADDR)    ;; # address
+        (link_A:b*)                 expect=(ADDR)    ;; # broadcast
+        (link_A:l*)                 expect=(DEVICE)  ;; # link
+        (link_A:m*)                 expect=(MTU)     ;; # mtu
+        (link_A:n*)                 expect=(NEWDEV)  ;; # name
+        (link_A:tx*)                expect=(NEWDEV)  ;; # txqueuelen
+        (link_A:ty*)    seen=link_T expect=(LTYPE)   ;; # type
 
-        (maddr:a*)      seen=maddr_add  expect=(MADDR =dev DEVICE) ;;
-        (maddr:d*)      seen=maddr_del  expect=(MADDR =dev DEVICE) ;;
-        (maddr:s*)      seen=maddr_show expect=(      =dev DEVICE) ;;
+        (link_D:n*)                 expect=(DEVICE)  ;; # name
+        (link_D:t*)                 expect=(LTYPE)   ;; # type
 
-        (monitor:*)     ;;
+        (link_S:ad*)                expect=(LLADDR)  ;; # address
+        (link_S:al*)                expect=(ONOFF)   ;; # allmulticast
+        (link_S:ar*)                expect=(ONOFF)   ;; # arp
+        (link_S:b*)                 expect=(LLADDR)  ;; # broadcast
+        (link_S:d*)                                  ;; # down
+        (link_S:dy*)                expect=(ONOFF)   ;; # dynamic
+        (link_S:mt*)                expect=(INT/32)  ;; # mtu
+        (link_S:mu*)                expect=(ONOFF)   ;; # multicast
+        (link_S:n*)                 expect=(NEWNAME) ;; # name
+        (link_S:p*)                 expect=(ONOFF)   ;; # promisc
+        (link_S:tr*)                expect=(ONOFF)   ;; # trailers
+        (link_S:tx*)                expect=(INT/8)   ;; # txqueuelen
+        (link_S:ty*)    seen=link_T expect=(LTYPE)   ;; # type
+        (link_S:u*)                                  ;; # up
 
-        (mroute:[sl]*)  seen=mroute_S expect=(PREFIX) ;; # list, show
-        (mroute_S:f*)   expect=(PREFIX) ;;  # from
-        (mroute_S:i*)   expect=(DEVICE) ;;  # iif
+        (link_T:c*)     seen+=C                      ;; # type can
+        (link_TC:b)                  expect=(INT:1:1000000 =sample-point NUM) ;; # type can ... bitrate
+        (link_TC:li*)                expect=(ONOFF)  ;; # type can ... listen-only
+        (link_TC:lo*)                expect=(ONOFF)  ;; # type can ... loopback
+        (link_TC:restart-*)          expect=(INT)    ;; # type can ... restart-ms
+        (link_TC:r*)                                 ;; # type can ... restart
+        (link_TC:o*)                 expect=(ONOFF)  ;; # type can ... one-shot
+        (link_TC:s)                  expect=(NUM:0:1) ;; # type can ... sample-point
+        (link_TC:sj*)                expect=(INT:1:4) ;; # type can ... sjw
+        (link_TC:t*)                 expect=(INT)    ;; # type can ... tq
+        (link_TC:ph*)                expect=(INT:1:8) ;; # type can ... phase-segN
+        (link_TC:pr*)                expect=(INT:1:8) ;; # type can ... prop-seg
+        (link_TC:*)                  expect=()       ;; # type can
 
-        (neigh:a*)      seen=neigh_A expect=(ADDR) ;; # add
-        (neigh:c*)      seen=neigh_A expect=(ADDR) ;; # change
-        (neigh:d*)      seen=neigh_A expect=(ADDR) ;; # del
-        (neigh:f*)      seen=neigh_S    ;; # flush
-        (neigh:l*)      seen=neigh_S    ;; # list, alias for show
-        (neigh:r*)      seen=neigh_A expect=(ADDR) ;; # replace
-        (neigh:s*)      seen=neigh_S    ;; # show
-        (neigh_A:*)     expect=(ADDR) ;;
-        (neigh_S:*)     ;;
+        (link_T:m*)     seen+=M      expect=(=mode MODE END) ; __ip_debug Got link...type mac ;; # type macvlan
+        (link_TM:*)                  expect=(END)    ;;
 
-        (ntable:*)      seen=ntable_$cur ;;
+        (link_T:v*)     seen+=V      expect=(=id INT/12) ; __ip_debug Got link...type vlan ;; # type vlan
+        (link_TV:e*)                 expect=(QOS-MAP) ;; # egress-qos-map
+        (link_TV:g*)                 expect=(ONOFF)  ;; # gvrp
+        (link_TV:id*)                expect=(INT/12) ;; # id
+        (link_TV:in*)                expect=(QOS-MAP) ;; # ingress-qos-map
+        (link_TV:l*)                 expect=(ONOFF)  ;; # loose_binding
+        (link_TV:r*)                 expect=(ONOFF ) ;; # reorder_hdr
 
-        (route:a*)      seen=route_A    ;; # add/append
-        (route:c*)      seen=route_A    ;; # change
-        (route:d*)      seen=route_A    ;; # del
-        (route:f*)      seen=route_L    ;; # flush
-        (route:g*)      seen=route_G expect=(ADDR) ;; # get
-        (route:l*)      seen=route_L    ;; # list
-        (route:m*)      seen=route_A    ;; # monitor
-        (route:r*)      seen=route_A    ;; # replace
-        (route:s*)      seen=route_L    ;; # show (alias for list)
+        (maddr:a*)      seen+=_add   expect=(MADDR =dev DEVICE) ;;
+        (maddr:d*)      seen+=_del   expect=(MADDR =dev DEVICE) ;;
+        (maddr:s*)      seen+=_show  expect=(      =dev DEVICE) ;;
 
-        (route_L:e*)    expect=(PREFIX) ;; # exact
-        (route_L:m*)    expect=(PREFIX) ;; # match
-        (route_L:p*)    expect=(RTPROTO) ;; # proto
-        (route_L:r*)    expect=(PREFIX) ;; # root
-        (route_L:s*)    expect=(SCOPE)  ;; # scope
-        (route_L:ta*)   expect=(TABLE+)  ;; # table
-        (route_L:ty*)   expect=(RTYPE)  ;; # type
+        (monitor:*)                                   ;;
 
-        (route_G:f*)    expect=(ADDR =iif IFACE) ;; # from
-        (route_G:i*)    expect=(IFACE)  ;; # iif
-        (route_G:o*)    expect=(IFACE)  ;; # oif
-        (route_G:t*)    expect=(TOS)    ;; # tos
+        (mroute:[sl]*)  seen+=_S     expect=(PREFIX) ;; # list, show
+        (mroute_S:f*)                expect=(PREFIX) ;; # from
+        (mroute_S:i*)                expect=(DEVICE) ;; # iif
+
+        (neigh:[acdr]*) seen+=_A     expect=(ADDR)   ;; # add, change, del, replace
+        (neigh:[fls]*)  seen+=_S                 ;; # flush, list, show
+        (neigh_*:l*)                 expect=(LLADDR) ;; # lladdr
+        (neigh_*:p*)                 expect=(ADDR)   ;; # proxy
+        (neigh_*:d*)                 expect=(DEV)    ;; # dev
+        (neigh_*:n*)                 expect=(NUD_STATE) ;; # nud
+        (neigh_*:t*)                 expect=(PREFIX) ;; # to
+
+        (ntable:c)      seen+=_C     expect=(=dev DEVICE) ;; # change
+        (ntable:[ls])   seen+=_S                ;; # list, show
+        (ntable_?:d*)                expect=(DEVICE) ;; # change
+        (ntable_?:n*)                expect=(NTNAME) ;; # change
+        (ntable_S:*)    seen=              ;; # list, show
+
+        (route:a*)      seen+=_A                 ;; # add/append
+        (route:c*)      seen+=_A                 ;; # change
+        (route:d*)      seen+=_A                 ;; # del
+        (route:f*)      seen+=_L                 ;; # flush
+        (route:g*)      seen+=_G     expect=(PREFIX) ;; # get
+        (route:l*)      seen+=_L                 ;; # list
+        (route:m*)      seen+=_A                 ;; # monitor
+        (route:r*)      seen+=_A                 ;; # replace
+        (route:s*)      seen+=_L                 ;; # show (alias for list)
+
+        (route_L:e*)                 expect=(PREFIX) ;; # exact
+        (route_L:m*)                 expect=(PREFIX) ;; # match
+        (route_L:p*)                 expect=(RTPROTO) ;; # proto
+        (route_L:r*)                 expect=(PREFIX) ;; # root
+        (route_L:s*)                 expect=(SCOPE)  ;; # scope
+        (route_L:ty*)                expect=(RTYPE)  ;; # type
+        (route_L:t*)                 expect=(TABLE+) ;; # table
+
+        (route_G:f*)                 expect=(ADDR =iif DEVICE) ;; # from
+        (route_G:i*)                 expect=(DEVICE) ;; # iif
+        (route_G:o*)                 expect=(DEVICE) ;; # oif
+        (route_G:t*)                 expect=(TOS)    ;; # tos
 
         (route_A:b[lr]*\
         |route_A:[lmnpt]*\
         |route_A:un[ir]*) seen=route_P expect=(PREFIX) ;;  # still seen route-add-type, now expecting PREFIX-[TTPSM], then [INFO_SPEC]
 
-        (route_A:*)     seen=route_P    ;; # seen route-add-[type]-prefix
+        (route_A:*)     seen=route_P                 ;; # seen route-add-[type]-prefix
 
-        (route_P:a*)    expect=(NUMBER16) ;; # advmss
-        (route_P:c*)    expect=(NUMBER32) ;; # cwnd
-        (route_P:d*)    expect=(IFACE)  ;; # dev
-        (route_P:e*)                    ;; # equalize
-        (route_P:i*)    expect=(NUMBER32) ;; # initcwnd
-        (route_P:me*)   expect=(NUMBER31S) ;; # metric
-        (route_P:mt*)   expect=(NUMBER32) ;; # mtu
-        (route_P:n*)                    ;; # nexthop
-        (route_P:o*)                    ;; # onlink
-        (route_P:pr*)   expect=(RTPROTO) ;; # proto
-        (route_P:pe*)                   ;; # pervasive
-        (route_P:re*)   expect=(REALM)  ;; # realms
-        (route_P:rto*)  expect=(TIME)   ;; # rto_min
-        (route_P:rtt*)  expect=(TIME)   ;; # rtt or rttvar
-        (route_P:sc*)   expect=(SCOPE)  ;; # scope
-        (route_P:sr*)   expect=(ADDR)   ;; # src
-        (route_P:ss*)   expect=(NUMBER) ;; # ssthresh
-        (route_P:ta*)   expect=(TABLE)  ;; # table
-        (route_P:to*)   expect=(TOS)    ;; # tos
-        (route_P:v*)    expect=(ADDR)   ;; # via
-        (route_P:we*)   expect=(NUMBER16) ;; # weight
-        (route_P:wi*)   expect=(NUMBER8) ;; # window
+        (route_P:a*)                 expect=(INT/16) ;; # advmss
+        (route_P:c*)                 expect=(INT/32) ;; # cwnd
+        (route_P:d*)                 expect=(DEVICE) ;; # dev
+        (route_P:e*)                                 ;; # equalize
+        (route_P:i*)                 expect=(INT/32) ;; # initcwnd
+        (route_P:me*)                expect=(INT:-0x80000000:0x7fffffff) ;; # metric
+        (route_P:mt*)                expect=(INT/32) ;; # mtu
+        (route_P:n*)                                 ;; # nexthop
+        (route_P:o*)                                 ;; # onlink
+        (route_P:pr*)                expect=(RTPROTO) ;; # proto
+        (route_P:pe*)                                ;; # pervasive
+        (route_P:re*)                expect=(REALM)  ;; # realms
+        (route_P:rto*)               expect=(TIME)   ;; # rto_min
+        (route_P:rtt*)               expect=(TIME)   ;; # rtt or rttvar
+        (route_P:sc*)                expect=(SCOPE)  ;; # scope
+        (route_P:sr*)                expect=(ADDR)   ;; # src
+        (route_P:ss*)                expect=(INT)    ;; # ssthresh
+        (route_P:ta*)                expect=(TABLE)  ;; # table
+        (route_P:to*)                expect=(TOS)    ;; # tos
+        (route_P:v*)                 expect=(ADDR)   ;; # via
+        (route_P:we*)                expect=(INT/16) ;; # weight
+        (route_P:wi*)                expect=(INT/8)  ;; # window
 
-        (rule:[ad]*)    seen=rule_A     ;; # add/del
-        (rule:[lfs]*)   seen=rule_L     ;; # flush/list/show
-        (rule_A:d*)     expect=(DEVICE) ;; # dev
-        (rule_A:fr*)    expect=(PREFIX) ;; # from
-        (rule_A:fw*)    expect=(NUMBER32) ;; # fwmark
-        (rule_A:g*)     expect=(NUMBER) ;; # goto
-        (rule_A:i*)     expect=(DEVICE) ;; # iif
-        (rule_A:l*)     expect=(TABLE)  ;; # lookup=table
-        (rule_A:n*)                     ;; # not
-        (rule_A:pre*)   expect=(NUMBER) ;; # pref
-        (rule_A:pri*)   expect=(NUMBER) ;; # prio
-        (rule_A:pro*)                   ;; # prohibit
-        (rule_A:rea*)   expect=(REALM)  ;; # realm
-        (rule_A:rej*)                   ;; # reject
-        (rule_A:ta*)    expect=(TABLE)  ;; # table
-        (rule_A:to)     expect=(PREFIX) ;; # to
-        (rule_A:tos)    expect=(TOS)    ;; # tos
-        (rule_A:u*)                     ;; # unreachable
+        (rule:[lfs]*)   seen=END                     ;; # flush/list/show
+        (rule:[ad]*)    seen+=_A                     ;; # add/del
+        (rule_A:d*)                  expect=(DEVICE) ;; # dev
+        (rule_A:fr*)                 expect=(PREFIX) ;; # from
+        (rule_A:fw*)                 expect=(INT/32) ;; # fwmark
+        (rule_A:g*)                  expect=(INT)    ;; # goto
+        (rule_A:i*)                  expect=(DEVICE) ;; # iif
+        (rule_A:l*)                  expect=(TABLE)  ;; # lookup=table
+        (rule_A:n*)                                  ;; # not
+        (rule_A:pre*)                expect=(INT)    ;; # pref
+        (rule_A:pri*)                expect=(INT)    ;; # prio
+        (rule_A:pro*)                                ;; # prohibit
+        (rule_A:rea*)                expect=(REALM)  ;; # realm
+        (rule_A:rej*)                                ;; # reject
+        (rule_A:ta*)                 expect=(TABLE)  ;; # table
+        (rule_A:to)                  expect=(PREFIX) ;; # to
+        (rule_A:tos)                 expect=(TOS)    ;; # tos
+        (rule_A:u*)                                  ;; # unreachable
 
-        (tunnel:*)      seen=tunnel_${cur:0:1} ;;
+        (tunnel:*)      seen+=_x     expect=(WORD)   ;; # add/change/del/list/show NAME
+        (tunnel_x:d*)                expect=(DEVICE) ;; # dev
+        (tunnel_x:[io]k*)            expect=(NUM_OR_V4ADDR) ;; # ikey/okey KEY
+        (tunnel_x:[lr]*)             expect=(ADDR)   ;; # local/remote ADDR
+        (tunnel_x:m*)   seen+=/tmode                 ;; # mode { ipip | gre | sit }
+        (tunnel_x:to*)               expect=(TOS)    ;; # tos TOS
+        (tunnel_x:tt*)               expect=(TTL)    ;; # ttl TTL
+        (tunnel_x:[io]c*) ;; # icsum/ocsum
+        (tunnel_x:[io]s*) ;; # iseq/oseq
+        (tunnel_x:[np]*) ;; # nopmtudisc/pmtudisc
+        (tunnel*/tmode:*) seen=${seen%/*}            ;;
 
-        (FAMILY:inet4)  save_ipv=-4 ;;
-        (FAMILY:inet6)  save_ipv=-6 ;;
-        (FAMILY:link)   ;;
-        (DEVICE:*)      save_device=$cur ;;
-        ([A-Z]*:*)      ;;
+        (xfrm:*)        seen+=_${cur:0:1} ;; # monitor/policy/state
 
-        (*)             __ip_error "Lost sync? seen=$seen expect=$expecting cur=$cur" ; return 1 ;;
+        (xfrm_s:al*)    seen+=a     expect=(ID) ;; # allocspi
+        (xfrm_s:deletea*) seen+=l   expect=(ID) ;; # deleteall
+        (xfrm_s:[au]*)  seen+=u     expect=(ID) ;; # add/update
+        (xfrm_s:[dg]*)  seen=END    expect=(ID) ;; # get/del
+        (xfrm_s:[ls]*)  seen+=l     expect=(ID) ;; # list/show
+        (xfrm_su:[ds]*)             expect=(ADDR) ;; # src/dst
+        (xfrm_su:[ds]*)             expect=(ADDR) ;; # src/dst
 
+
+        (*) __ip_error "Lost sync? seen=$seen expect=$expect cur=$cur" ; return 1 ;;
         esac
-        : ${expect:=${seen%/*}}
 
         __ip_debug_parsing_state
     done
     cur=$(_get_cword)
 
-    local or_digits=false or_prefix=false max_num= min_num=
+    __ip_debug "Finished checking previous words; seen=$seen expect=(${expect[*]}) expect[0]=${expect:-@${seen%/*}}"
 
-    case $expect in
-    (START) COMPREPLY+=( addr link maddr monitor mroute neigh ntable route rule \
+    ((${#expect[@]}==0)) && __ip_debug_unexpected "expectation list empty!"
+
+    local or_digits=false or_decimal=false max_num= min_num=
+
+    case ${expect:-/${seen##*/}} in
+
+    (/START)
+            COMPREPLY=( addr link maddr monitor mroute neigh ntable route rule \
                       tunnel xfrm --details --family --oneline --resolve \
                       --statistics --timestamp --verbose --Version -0 -4 -6 \
                       -d -f -o -r -s -t -v -V ) ;;
 
-    (addr)  COMPREPLY+=( add change flush del list show replace monitor ) ;;
-    (addr_A)
-            COMPREPLY+=( anycast broadcast deprecated dev dynamic home label \
+    (/END)
+            __ip_debug_unexpected "No more options"
+            return ;;
+
+    ########################################################################
+
+    (=*)    COMPREPLY=( ${expect#=} ) ; return ;;
+
+    ########################################################################
+
+    (/addr)
+            COMPREPLY=( add change flush del list show replace monitor ) ;;
+    (/addr_A)
+            COMPREPLY=( anycast broadcast deprecated dev dynamic home label \
                       nodad peer permanent preferred_lft primary scope \
                       secondary tentative to valid_lft ) ;;
-    (addr_D)
-            COMPREPLY+=( dev ) ;;
-    (addr_S)
-            COMPREPLY+=( anycast broadcast deprecated dev dynamic home label \
+    (/addr_D)
+            COMPREPLY=( dev ) ;;
+    (/addr_S)
+            COMPREPLY=( anycast broadcast deprecated dev dynamic home label \
                       nodad peer permanent primary scope secondary tentative \
                       to ) ;;
 
-    (link)  COMPREPLY+=( list show set ) ;;
-    (link_S)
-            COMPREPLY+=( address allmulticast arp broadcast down dynamic mtu \
-                      multicast name promisc trailers txqueuelen up ) ;;
+    (/link)
+            COMPREPLY=( add delete list show set ) ;;
+    (/link_A)
+            COMPREPLY=( address broadcast link mtu name txqueuelen type ) ;;
+    (/link_D)
+            COMPREPLY=( type dev ) ;;
+    (/link_L)
+            ;;  # no more allowed
+    (/link_S)
+            COMPREPLY=( address allmulticast arp broadcast down dynamic mtu \
+                      multicast name promisc trailers txqueuelen type up ) ;;
+    (/link_T)
+            COMPREPLY=( can macvlan vlan ) ;;
+    (/link_TC)
+            COMPREPLY=( berr-reporting bitrate listen-only loopback one-shot \
+                        phase-seg1 phase-seg2 prop-seg restart restart-ms \
+                        sample-point sjw tq triple-sampling ) ;;
+    (/link_TM)
+            COMPREPLY=( mode ) ;;
+    (/link_TV)
+            COMPREPLY=( egress-qos-map gvrp ingress-qos-map loose_binding \
+                        reorder_hdr ) ;;
 
-    (maddr) COMPREPLY+=( add del list show ) ;;
+    (/maddr)
+            COMPREPLY=( add del list show ) ;;
 
-    (monitor)
-            COMPREPLY+=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
+    (/monitor)
+            COMPREPLY=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
 
-    (mroute)
-            COMPREPLY+=( list show ) ;;
+    (/mroute)
+            COMPREPLY=( list show ) ;;
 
-    (neigh)
-            COMPREPLY+=( add change del replace ) ;;
+    (/neigh)
+            COMPREPLY=( add change del replace list show flush ) ;;
+    (/neigh_A)
+            COMPREPLY=( dev lladdr nud proxy ) ;;
+    (/neigh_S)
+            COMPREPLY=( dev nud to ) ;;
 
-    (ntable)
-            COMPREPLY+=( change ) ;;
+    (/ntable)
+            COMPREPLY=( change list show ) ;;
+    (/ntable_C)
+            COMPREPLY=( name dev thresh1 thresh2 thresh3 gc_int base_reachable \
+                      retrans gc_stale delay_probe queue app_probs \
+                      ucast_probes mcast_probes anycast_delay proxy_delay \
+                      proxy_queue locktime ) ;;
+    (/ntable_S)
+            COMPREPLY=( dev name ) ;;
 
-    (route) COMPREPLY+=( add append change del flush get list show replace monitor ) ;;
-    (route_G)
-            COMPREPLY+=( from oif tos ) ;;
-    (route_L)   # RTSELECTOR
-            COMPREPLY+=( root match exact table proto type scope ) ;;
-    (route_A)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
-            COMPREPLY+=( via dev weight unicast local broadcast multicast \
+    (/route)
+            COMPREPLY=( add append change del flush get list show replace monitor ) ;;
+    (/route_G)
+            COMPREPLY=( from oif tos ) ;;
+    (/route_L)   # RTSELECTOR
+            COMPREPLY=( root match exact table proto type scope ) ;;
+    (/route_A)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
+            COMPREPLY=( via dev weight unicast local broadcast multicast \
                       throw unreachable prohibit blackhole nat default )
-            or_prefix=true ;;
-    (route_P)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
-            COMPREPLY+=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
+            __ip_complete_address -P ;;
+    (/route_P)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
+            COMPREPLY=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
                       proto realms rto_min rtt rttvar scope src ssthresh \
                       table tos via weight window ) ;;
 
-    (rule)  COMPREPLY+=( add del flush list show ) ;;
-    (rule_A)
-            COMPREPLY+=( dev from fwmark goto iif lookup not pref prio prohibit \
+    (/rule)
+            COMPREPLY=( add del flush list show ) ;;
+    (/rule_A)
+            COMPREPLY=( dev from fwmark goto iif lookup not pref prio prohibit \
                       realms reject table to tos unreachable ) ;;
-    (rule_L)
-            ;;
 
-    (tunnel)
-            COMPREPLY+=( add change del list show ) ;;
+    (/tunnel)
+            COMPREPLY=( add change del list show ) ;;
+    (/tunnel_x)
+            COMPREPLY=( dev icsum ikey iseq local mode nopmtudisc ocsum okey oseq pmtudisc remote tos ttl ) ;;
+    (/tmode)
+            COMPREPLY=( gre ipip sit ) ;;
 
-    (xfrm)  COMPREPLY+=( policy state monitor ) ;;
+    (/xfrm)
+            COMPREPLY=( policy state monitor ) ;;
+    (/xfrm_sa)
+            COMPREPLY=( max min mode reqid seq ) ;;
+    (/xfrm_su)
+            COMPREPLY=( mode reqid seq replay-window flag encap sel limit ) ;;
 
-    (=*)    COMPREPLY+=( ${expect#=} ) ;;
+    ########################################################################
 
-    (DEVICE)
-            COMPREPLY+=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' ) ;;
-    (FAMILY)
-            COMPREPLY+=( inet inet6 ipx dnet link ) ;;
-    (LFT)   COMPREPLY+=( forever ) or_digits=true max_num=255 ;;
-    (NUMBER)
-            or_digits=true ;;
-    (NUMBER8)
-            or_digits=true max_num=0xff ;;
-    (NUMBER16)
-            or_digits=true max_num=0xffff ;;
-    (NUMBER32)
-            or_digits=true max_num=0xffffffff ;;
-    (NUMBER31S)
-            or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
-    (ONOFF) COMPREPLY+=( on off ) ;;
-    (REALM) COMPREPLY+=( '$(__ip_slurp /etc/iproute2/rt_realms)' )
-            or_digits=true max_num=0xff ;;
-    (SCOPE) COMPREPLY+=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
-    (ADDR)  __ip_complete_address $save_ipv $cur || return $? ;;
-    (MADDR) __ip_complete_address $save_ipv -m $cur || return $? ;;
-    (LLADDR)
-            __ip_complete_address -0 $cur ;;
-    (PREFIX)
-            __ip_complete_address $save_ipv -P $cur || return $? ;;
-    (LABEL) COMPREPLY+=( $save_device: ) ;;
-    (TABLE) COMPREPLY+=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
-            or_digits=true max_num=255 ;;
-    (TABLE+)
-            COMPREPLY+=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
-            or_digits=true max_num=255 min_num=-2 ;;
-    (RTYPE) COMPREPLY+=( blackhole broadcast local multicast nat prohibit throw \
-                      unicast unreachable ) ;;
-    (RTPROTO)
-            COMPREPLY+=( boot kernel static ) or_digits=true max_num=255 ;;
-    (TOS)   COMPREPLY+=( inherit ) or_digits=true max_num=255 ;;
+    (ADDR)      __ip_complete_address -46 $cur ; return ;;
+    (V4ADDR)    __ip_complete_address -4 $cur ; return ;;
+    (V6ADDR)    __ip_complete_address -6 $cur ; return ;;
+    (NUM_OR_V4ADDR) __ip_complete_address -4 $cur ; or_digits=true min_num=0 ;;
+    (DEVICE)    COMPREPLY=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' ) ;;
+    (FAMILY)    COMPREPLY=( inet inet6 ipx dnet link ) ;;
+    (INT)       or_digits=true ;;
+    (INT/*)     or_digits=true min_num=0 max_num=$(((1<<${expect#*/})-1)) ;;
+    (INT:*:*)   or_digits=true i=${expect#*:} min_num=${i%:*} max_num=${i#*:} ;;
+    (LABEL)     COMPREPLY=( $save_device: ) ;;
+    (LFT)       COMPREPLY=( forever ) or_digits=true max_num=255 ;;
+    (LLADDR)    COMPREPLY=( 00:00:00:00:00:00 ... ) ;;
+    (LTYPE)     COMPREPLY=( can macvlan vlan ) ;;
+    (MADDR)     __ip_complete_address -m -4 -6 $cur ; return ;;
+    (MODE)      COMPREPLY=( bridge private vepa ) ;;
+    (NTNAME)    COMPREPLY=( '$(ip ntable list | sed -e "s/ *$//; /^ \|^$/d; s/.* //" | sort -u)' ) ;;
+    (NUD_STATE) COMPREPLY=( noarp permanent reachable stale ) ;;
+    (NUM)       or_decimal=true ;;
+    (NUM:*:*)   or_decimal=true i=${expect#*:} min_num=${i%:*} max_num=${i#*:} ;;
+    (ONOFF)     COMPREPLY=( on off ) ;;
+    (PREFIX)    __ip_complete_address -P -4 -6 $cur ; return ;;
+    (REALM)     COMPREPLY=( '$(__ip_slurp /etc/iproute2/rt_realms)' ) or_digits=true max_num=0xff ;;
+    (RTPROTO)   COMPREPLY=( boot kernel static ) or_digits=true max_num=255 ;;
+    (RTYPE)     COMPREPLY=( blackhole broadcast local multicast nat prohibit throw unicast unreachable ) ;;
+    (SCOPE)     COMPREPLY=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
+    (SUBDEVICE) COMPREPLY=( $save_device. ) ;;
+    (TABLE)     COMPREPLY=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 ;;
+    (TABLE+)    COMPREPLY=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 min_num=-2 ;;
+    (TTL)       COMPREPLY=( inherit ) or_digits=true min_num=1 max_num=255 ;;
+    (TOS)       COMPREPLY=( inherit ) or_digits=true min_num=0 max_num=99 ;;
+    (WORD)      [[ -n "$cur" ]] && __ip_debug "(label)" ;;
 
     (K_options) ;;
 
-    (*)     __ip_error "Undefined expect=[$expect] seen=[${seen##*/}]" ;;
+    (*)     __ip_error "Undefined expect=[$expect] seen=[${seen##*/}]" ; COMPREPLY=() ;;
     esac
+    __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits cur=$cur"
 
-    __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits or_prefix=$or_prefix cur=$cur"
-
-    $or_prefix && __ip_complete_address $save_ipv -p $cur
-
-    if $or_digits && [[ ${cur#-} != *[^0-9]* ]]
+    if ( $or_decimal || $or_digits ) && [[ ${cur#-} != *[^0-9.]* && $cur != *.*.* ]]
     then
-        [[ $cur != '-' ]] && COMPREPLY+=( ${cur} )
-        if (( (!${#max_num} || cur*10 <= max_num) &&
-              (!${#min_num} || cur*10 >= min_num) ))
-        then COMPREPLY+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 \
-                          ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
+        if [[ -n $cur ]]
+        then __ip_check_range "$cur" "$min_num" "$max_num" "$or_decimal" && COMPREPLY+=($cur)
+        else (( !${#min_num} || min_num < 0 )) && COMPREPLY+=(-)
         fi
+        for ((i=0;i<10;i++)) do
+            __ip_check_range "$cur$i" "$min_num" "$max_num" "$or_decimal" && COMPREPLY+=($cur$i)
+        done
+        $or_decimal && [[ $cur != *.* && -n $cur ]] && COMPREPLY+=($cur.)
     fi
 
     COMPREPLY=( $( compgen -W "${COMPREPLY[*]}" -- $cur ) )
 
     ((${#COMPREPLY[@]} == 0)) && {
-        __ip_debug "No matches for '$cur'"
+        __ip_debug_unexpected "No matches for '$cur'"
         return 1
     }
 
-    # completion treats colons as if they were word-separators, and appends to current word rather than replacing it
-    [[ $cur = *:* ]] &&
-    for ((i=0 ; i<${#COMPREPLY[@]} ; i++ )) do
-        COMPREPLY[i]="${COMPREPLY[i]#${cur%:*}:}"
-    done
+    # Bash's completion mechanism replaces the text after the last colon (or
+    # indeed any char in $COMP_WORDBREAKS) in the target word, rather than the
+    # entire word.
+    #
+    # Work around it by stripping whatever matches everything up to the last
+    # colon in "$cur". (We've done "compgen", so everything in COMPREPLY has
+    # "$cur" as a prefix.)
 
-    ((${#COMPREPLY[@]} == 1)) && [[ $COMPREPLY != *[.:] ]] && COMPREPLY="${COMPREPLY% } "
+    if [[ $cur = *:* && $COMP_WORDBREAKS = *:* ]]
+    then
+        for i in  ${!COMPREPLY[*]} ; do
+            COMPREPLY[i]="${COMPREPLY[i]#${cur%:*}:}"
+        done
+    fi
+
+    # If there's only one option, then "complete" the word by putting a space after it
+    ((${#COMPREPLY[@]} == 1)) && COMPREPLY+=" "
 
     return 0
 }
-
-#COMP_VERBOSE=false
+COMP_VERBOSE=false
 complete -F _ip -o nospace ip
+
+return
+
+: <<'EndOfDocs'
+Output from "ip help", then "ip addr help" etc ...
+
+################################################################################
+
+Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+       ip [ -force ] [-batch filename
+
+ where
+        OPTIONS := { -V[ersion]
+                   | -s[tatistics]
+                   | -d[etails]
+                   | -r[esolve]
+                   | -f[amily] { inet
+                               | inet6
+                               | ipx
+                               | dnet
+                               | link }
+                   | -o[neline]
+                   | -t[imestamp] }
+        OBJECT := { link
+                  | addr
+                  | route
+                  | rule
+                  | neigh
+                  | ntable
+                  | tunnel
+                  | maddr
+                  | mroute
+                  | monitor
+                  | xfrm }
+
+################################################################################
+
+Usage: ip addr { add
+               | change
+               | replace } IFADDR dev STRING
+                                  [ LIFETIME ]
+                                  [ CONFFLAG ... ]
+       ip addr del IFADDR dev STRING
+       ip addr { show
+               | flush } { dev STRING
+                         | label PATTERN
+                         | scope SCOPE-ID
+                         | to PREFIX
+                         | FLAG ... } ...
+
+ where
+        IFADDR := PREFIX
+                | ADDR peer PREFIX
+                       [ broadcast ADDR ]
+                       [ anycast ADDR ]
+                       [ label STRING ]
+                       [ scope SCOPE-ID ]
+        SCOPE-ID := [ host
+                    | link
+                    | global
+                    | NUMBER ]
+        FLAG  := [ permanent
+                 | dynamic
+                 | secondary
+                 | primary
+                 | tentative
+                 | deprecated
+                 | CONFFLAG ... ]
+        CONFFLAG := { home
+                    | nodad }
+        LIFETIME := [ valid_lft LFT ]
+                    [ preferred_lft LFT ]
+        LFT := forever
+             | SECONDS
+
+################################################################################
+
+Usage: ip link set DEVICE { address LLADDR
+                          | allmulticast { on | off }
+                          | arp { on | off }
+                          | dynamic { on | off }
+                          | mtu MTU
+                          | multicast { on | off }
+                          | name NEWNAME
+                          | promisc { on | off }
+                          | trailers { on | off }
+                          | txqueuelen PACKETS
+                          | broadcast LLADDR
+                          | down
+                          | up }
+       ip link show [ DEVICE ]
+
+       ip link { add | set } [link] DEVICE type can { bitrate BITRATE
+                                                    | sample-point SAMPLE-POINT
+                                                    | berr-reporting { on | off }
+                                                    | listen-only { on | off }
+                                                    | loopback { on | off }
+                                                    | one-shot { on | off }
+                                                    | restart
+                                                    | restart-ms TIME-MS
+                                                    | tq TQ
+                                                    | prop-seg PROP_SEG
+                                                    | phase-seg1 PHASE-SEG1
+                                                    | phase-seg2 PHASE-SEG2
+                                                    | sjw SJW
+                                                    | triple-sampling { on | off }
+                                                    } ...
+
+       ip link { add | set } [link] DEVICE type macvlan macvlan mode { bridge | private | vepa }
+
+       ip link { add | set } [link] DEVICE type vlan id VLANID [ FLAG ... ]
+                           [ ingress-qos-map QOS-MAP ] [ egress-qos-map QOS-MAP ]
+
+       ip link delete [dev] DEVICE type LTYPE
+
+ where
+        VLANID := 0-4095
+        FLAG := { reorder_hdr { on | off }
+                | gvrp { on | off }
+                | loose_binding { on | off } }
+        QOS-MAP := [ QOS-MAP ] QOS-MAPPING
+        QOS-MAPPING := FROM:TO
+
+        BITRATE       := { 1..1000000 }
+        SAMPLE-POINT  := { 0.000..0.999 }
+        TQ            := { NUMBER }
+        PROP-SEG      := { 1..8 }
+        PHASE-SEG1    := { 1..8 }
+        PHASE-SEG2    := { 1..8 }
+        SJW           := { 1..4 }
+        RESTART-MS    := { 0 | NUMBER }
+
+################################################################################
+
+Usage: ip maddr [ add
+                | del ] MULTIADDR dev STRING
+       ip maddr show [ dev STRING ]
+
+################################################################################
+
+Usage: ip monitor [ all
+                  | OBJECT ... ]
+
+################################################################################
+
+Usage: ip mroute show [ PREFIX ]
+                      [ from PREFIX ]
+                      [ iif DEVICE ]
+
+################################################################################
+
+Usage: ip neigh { add
+                | del
+                | change
+                | replace } { ADDR [ lladdr LLADDR ]
+                                   [ nud { permanent
+                                         | noarp
+                                         | stale
+                                         | reachable } ]
+                            | proxy ADDR }
+                            [ dev DEV ]
+       ip neigh { show
+                | flush } [ to PREFIX ]
+                          [ dev DEV ]
+                          [ nud NUD_STATE ]
+
+ where
+        NUD_STATE={ noarp | permanent | reachable | stale }
+
+################################################################################
+
+Usage: ip ntable change name NAME [ dev DEV ]
+                                  [ anycast_delay MSEC ]
+                                  [ app_probs VAL ]
+                                  [ base_reachable MSEC ]
+                                  [ delay_probe MSEC ]
+                                  [ gc_int MSEC ]
+                                  [ gc_stale MSEC ]
+                                  [ locktime MSEC ]
+                                  [ mcast_probes VAL ]
+                                  [ proxy_delay MSEC ]
+                                  [ proxy_queue LEN ]
+                                  [ queue LEN ]
+                                  [ retrans MSEC ]
+                                  [ thresh1 VAL ]
+                                  [ thresh2 VAL ]
+                                  [ thresh3 VAL ]
+                                  [ ucast_probes VAL ]
+       ip ntable show [ dev DEV ]
+                      [ name NAME ]
+
+################################################################################
+
+Usage: ip route { list
+                | flush } [ RTSELECTOR ... ]
+       ip route get ADDRESS [ from ADDRESS iif STRING ]
+                            [ oif STRING ]
+                            [ tos TOS ]
+       ip route { add
+                | del
+                | change
+                | append
+                | replace
+                | monitor } ROUTE
+
+ where
+        RTSELECTOR := { root PREFIX
+                      | match PREFIX
+                      | exact PREFIX
+                      | table TABLE_ID
+                      | proto RTPROTO
+                      | type TYPE
+                      | scope SCOPE }
+        ROUTE := NODE_SPEC [ INFO_SPEC ]
+        NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]
+                                     [ table TABLE_ID ]
+                                     [ proto RTPROTO ]
+                                     [ scope SCOPE ]
+                                     [ metric METRIC ]
+        INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ] ...
+        NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS
+        OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]
+                   [ rtt TIME ] [ rttvar TIME ]
+                   [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]
+                   [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]
+                   [ rto_min TIME ]
+        TYPE := [ unicast | local | broadcast | multicast | throw |
+                  unreachable | prohibit | blackhole | nat ]
+        TABLE_ID := { «a value from /etc/iproute2/rt_tables»
+                    | all
+                    | NUMBER }
+        SCOPE := [ host | link | global | NUMBER ]
+        FLAGS := [ equalize ]
+        MP_ALGO := { rr | drr | random | wrandom }
+        NHFLAGS := [ onlink | pervasive ]
+        RTPROTO := [ kernel | boot | static | NUMBER ]
+        TIME := NUMBER[s|ms|us|ns|j]
+
+################################################################################
+
+Usage: ip rule { list
+               | add
+               | del
+               | flush } [ [ not ] SELECTOR ... ]
+                         [ ACTION ... ]
+
+ where
+        SELECTOR := { dev STRING
+                    | from PREFIX
+                    | fwmark FWMARK[/MASK]
+                    | pref NUMBER
+                    | prio NUMBER
+                    | to PREFIX
+                    | tos TOS }
+        ACTION := { goto NUMBER
+                  | prohibit
+                  | realms [SRCREALM/]DSTREALM
+                  | reject
+                  | table TABLE_ID
+                  | unreachable }
+        TABLE_ID := { «a value from /etc/iproute2/rt_tables»
+                    | NUMBER }
+
+################################################################################
+
+Usage: ip tunnel { add
+                 | change
+                 | del
+                 | show } [ NAME ]
+                          [ dev PHYS_DEV ]
+                          [ icsum ]
+                          [ ikey KEY ]
+                          [ iseq ]
+                          [ local ADDR ]
+                          [ mode { ipip | gre | sit } ]
+                          [ nopmtudisc ]
+                          [ ocsum ]
+                          [ okey KEY ]
+                          [ oseq ]
+                          [ pmtudisc ]
+                          [ remote ADDR ]
+                          [ tos TOS ]
+                          [ ttl TTL ]
+
+ where
+        NAME := STRING
+        ADDR := { IP_ADDRESS
+                | any }
+        TOS  := { NUMBER
+                | inherit }
+        TTL  := { 1..255
+                | inherit }
+        KEY  := { DOTTED_QUAD
+                | NUMBER }
+
+################################################################################
+
+Usage: ip xfrm { state
+               | policy
+               | monitor } help
+
+       ip xfrm state { add
+                     | update } ID
+                                [ XFRM_OPT ]
+                                [ mode MODE ]
+                                [ reqid REQID ]
+                                [ seq SEQ ]
+                                [ replay-window SIZE ]
+                                [ flag FLAG ... ]
+                                [ encap ENCAP ]
+                                [ sel SELECTOR ]
+                                [ { limit LIMIT } ... ]
+
+       ip xfrm state allocspi ID
+                              [ mode MODE ]
+                              [ reqid REQID ]
+                              [ seq SEQ ]
+                              [ min SPI max SPI ]
+
+       ip xfrm state { delete
+                     | get } ID
+
+       ip xfrm state { deleteall
+                     | list } [ ID ]
+                              [ mode { MODE | ro } ]
+                              [ reqid REQID ]
+                              [ flag FLAG_LIST ]
+
+       ip xfrm state flush [ proto XFRM_PROTO ]
+
+       ip xfrm state count
+
+       ip xfrm policy { add | update } dir DIR
+                                       SELECTOR
+                                       [ index INDEX ]
+                                       [ ptype PTYPE ]
+                                       [ action ACTION ]
+                                       [ priority PRIORITY ]
+                                       [ { limit LIMIT } ... ]
+                                       [ { tmpl [ ID ]
+                                                [ TMPL ... ] } ... ]
+
+       ip xfrm policy { delete | get } dir DIR
+                                       [ SELECTOR
+                                       | index INDEX  ]
+                                       [ ptype PTYPE ]
+
+       ip xfrm policy { deleteall | list } [ dir DIR ]
+                                           [ SELECTOR ]
+                                           [ index INDEX ]
+                                           [ action ACTION ]
+                                           [ priority PRIORITY ]
+
+       ip xfrm policy flush  [ ptype PTYPE ]
+
+       ip xfrm count
+
+       ip xfrm monitor [ all | OBJECT ... ]
+
+ where
+
+        ID :=  { src ADDR
+               | dst ADDR
+               | proto XFRM_PROTO
+               | spi SPI } ...
+
+        XFRM_PROTO :=  [ esp
+                       | ah
+                       | comp
+                       | route2
+                       | hao ]
+
+        MODE :=  { transport  «default»
+                 | tunnel
+                 | beet }
+
+        FLAG :=  { noecn
+                 | decap-dscp
+                 | wildrecv }
+
+        ENCAP := { espinudp
+                 | espinudp-nonike } SPORT
+                                     DPORT
+                                     OADDR
+
+        SELECTOR := src ADDR[/PLEN]
+                    dst ADDR[/PLEN]
+                    [ UPSPEC ]
+                    [ dev DEV ]
+
+        UPSPEC := proto PROTO [ [ sport PORT ] [ dport PORT ] | [ type NUMBER ] [ code NUMBER ] ]
+
+        LIMIT :=  { time-soft SECONDS
+                  | time-hard SECONDS
+                  | time-use-soft SECONDS
+                  | time-use-hard SECONDS
+                  | byte-soft SIZE
+                  | byte-hard SIZE
+                  | packet-soft COUNT
+                  | packet-hard COUNT }
+
+        PTYPE :=  { main  «default»
+                  | sub }
+
+        DIR :=  { in
+                | out
+                | fwd }
+
+        ACTION :=  { allow  «default»
+                   | block }
+
+        TMPL := { mode MODE
+                | reqid REQID
+                | level LEVEL }
+
+        LEVEL :=  { required  «default»
+                  | use }
+
+################################################################################
+
+EndOfDocs
