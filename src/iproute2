@@ -40,84 +40,67 @@ __ip_warning() { : ; }
 
 __ip_complete_address()
 {
-    local maybe_ipv4=false maybe_ipv6=false maybe_prefix=false nsp=true \
-          require_prefix=false possibly_complete=false definitely_complete=false last_term_complete=false \
-          require_multicast=false \
-          last_term
+    local accept_link=false accept_ipv4=false accept_ipv6=false accept_prefix=false \
+          require_prefix=false require_multicast=false
 
     while (($#)) ; do  case $1 in
     (--) shift ; break ;;
-    (-0) echo >&2 "Option '-0' not implemented" ; return 64 ;;
-    (-4) maybe_ipv4=true ;;
-    (-6) maybe_ipv6=true ;;
-    (-p) maybe_prefix=true ;;
-    (-P) require_prefix=true ;;
+    (-0) accept_link=true ;;
+    (-46|-64) accept_ipv4=true accept_ipv6=true ;;
+    (-4) accept_ipv4=true ;;
+    (-6) accept_ipv6=true ;;
+    (-p) accept_prefix=true ;;
+    (-P) require_prefix=true accept_prefix=true ;;
     (-m) require_multicast=true ;;
     (-*) ;;
     (*) break ;;
     esac ; shift ; done
+
     local cur=$1
+    local cus=${cur%/*}
 
-    __ip_debug "Completing address starting with '$cur': ipv4=$maybe_ipv4 ipv6=$maybe_ipv6 prefix=$maybe_prefix/$require_prefix "
+    __ip_debug "Completing address starting with '$cur': link=$accept_link ipv4=$accept_ipv4 ipv6=$accept_ipv6 prefix=$accept_prefix/$require_prefix "
 
-    if $require_prefix && [[ $cur = d* || $cur = ::/0 || $cur = 0.0.0.0/0 ]]
+    if ! $accept_prefix && [[ $cur = */* ]]
     then
-        __ip_warning "Expecting a non-default prefix"
-        COMPREPLY=(default\ )
-        return 0
+        __ip_warning "Not expecting a prefix"
+        COMPREPLY+=($cus)
+        return 1
     fi
 
-    [[ $cur = *::* ]] && possibly_complete=true
-    [[ $cur = *:*:*:*:*:*:*:* || $cur = *.*.*.* ]] && possibly_complete=true definitely_complete=true
-    [[ $cur = *[:a-f]* || $cur = [0-9][0-9][0-9][0-9]* ]] && maybe_ipv4=false
-    [[ $cur = *.* ]] && maybe_ipv6=false
-
-    $COMP_VERBOSE && echo >&2 $'\e[A\e[2K\r'"Completing address starting with '$cur': ipv4=$maybe_ipv4 ipv6=$maybe_ipv6 prefix=$maybe_prefix/$require_prefix possibly-complete=$possibly_complete definitely-complete=$definitely_complete"
+    [[ $cur = *[^:0-9a-f]* || $cur = *[^:][^:][^:]* || $cur = *::* || :$cur = *:?:* || $cur = :* || $cur = *:*:*:*:*:*:* ]] && accept_link=false
+    [[ $cur = */*[^0-9]* ]] && accept_prefix=false
+    [[ $cus = *[^.0-9]*     || $cus = *[^0.][^.][^.][^.]*          || $cur = *.*.*.*.*         || $cur = .*    || $cur = *.[./]* ]] && accept_ipv4=false
+    [[ $cus = *[^.0-9:a-f]* || $cus = *[^0:.][^:.][^:.][^:.][^:.]* || $cur = *:*:*:*:*:*:*:*:* || $cur = *:::* || $cur = *.*:*   || ( $cur = *.* && $cur != ::* ) ]] && accept_ipv6=false
 
     # sanity check
-    $maybe_ipv4 || $maybe_ipv6 || {
-        __ip_warning "Invalid address; neither IPv4 nor IPv6 possible"
+    $accept_link || $accept_ipv4 || $accept_ipv6 || {
+        __ip_warning "Invalid address; neither Link nor IPv4 nor IPv6 possible"
         return 1
     }
 
-    case $cur in
-    (.* \
-    |*..* \
-    |*.*.*.*.* \
-    |*:::* \
-    |*:*:*:*:*:*:*:*:* \
-    |*/*[:./]* \
-    |*.*[:a-f]* \
-    |*[:a-f]*.* \
-    |*[^/.:0-9a-f]* )
-        __ip_debug "Address '$cur' is neither valid IPv4 nor valid IPv6"
-        return 1 ;;
-    esac
+    if $require_prefix
+    then
+        if ! $accept_prefix
+        then
+            __ip_warning "Invalid prefix /${cur#*/}"
+            return 1
+        fi
+        if [[ $cur = ::/* || $cur = 0.* || $cur = */0 ]]
+        then
+            COMPREPLY+=(default)
+            return 0
+        fi
+    fi
 
-    [[ ${cur%/*} = *[:a-f]* ]] && ! $maybe_ipv6 && {
-        __ip_debug "Invalid IPv4 address $cur"
-        return 1
-    }
-    [[ ${cur%/*} = *.* ]] && ! $maybe_ipv4 && {
-        __ip_debug "Invalid IPv6 address $cur"
-        return 1
-    }
-
-    local d19 d09 d0f dot col slash
-    d19="${cur}1 ${cur}2 ${cur}3 ${cur}4 ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9"
-    d09="${cur}0 $d19"
-    d0f="$d09 ${cur}a ${cur}b ${cur}c ${cur}d ${cur}e ${cur}f"
-    dot=$cur.
-    col=$cur:
-    slash=$cur/
-
-    COMPREPLY=()
+    local d19="${cur}1 ${cur}2 ${cur}3 ${cur}4 ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9"
+    local d09="${cur}0 $d19"
+    local d0f="$d09 ${cur}a ${cur}b ${cur}c ${cur}d ${cur}e ${cur}f"
 
     if [[ $cur = */* ]]
     then
-        local pref_len=${cur##*/} \
-              max_pref_len=32
-        $maybe_ipv6 && max_pref_len=128
+        local pref_len=${cur##*/} max_pref_len=32
+        $accept_ipv6 && max_pref_len=128
 
         [[ $pref_len = *[^0-9]* ]] && {
             __ip_error "Prefix-length '$pref_len' is non-numeric"
@@ -131,64 +114,53 @@ __ip_complete_address()
         if (( pref_len * 10 > max_pref_len ))
         then
             __ip_warning "Prefix length is greater than ${max_pref_len%?}, therefore we're finished"
-            nsp=false
             COMPREPLY+=($cur)
         else
             COMPREPLY+=($d09)
         fi
     else
-        local last_term=${cur##*[:.]}
-
-        if $require_multicast && [[ $cur = $last_term ]]
+        if $require_multicast && [[ $cur != *[:.]* ]]
         then
-            COMPREPLY=( $( compgen -W "224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 ffc0::" -- $cur ) )
+            $accept_link && COMPREPLY+=( ff:ff:ff:ff:ff:ff )
+            $accept_ipv4 && COMPREPLY+=( 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 )
+            $accept_ipv6 && COMPREPLY+=( ffc0:: )
             __ip_debug "Start of multicast range"
             return 0
         fi
 
-        if $maybe_ipv6
-        then [[ $last_term = [0-9a-f][0-9a-f][0-9a-f][0-9a-f] ]]
-        else $maybe_ipv4 &&
-             [[ $last_term != *[^0-9]* &&
-                $last_term = [0-9]* ]] &&
-             (( last_term >= 26 || last_term == 0 ))
-        fi && last_term_complete=true
+        local last_term=${cur##*[:.]}
 
-        if $last_term_complete
+        if  # is last word of address complete?
+            { $accept_ipv6 && [[ $last_term = [0-9a-f][0-9a-f][0-9a-f][0-9a-f] ]] ; } ||
+            { $accept_ipv4 &&
+                [[ $last_term != *[^0-9]* &&
+                   $last_term = [0-9]* ]] &&
+                (( last_term >= 26 ||
+                   last_term == 0 )) ; }
         then
-            $possibly_complete && nsp=false
-        elif $maybe_ipv6
+            :
+        elif $accept_ipv6
         then COMPREPLY+=($d0f)
         elif [[ $last_term = '' ]]
         then COMPREPLY+=($d09)
         else COMPREPLY+=($d19)
         fi
 
-        $maybe_prefix && $possibly_complete && COMPREPLY+=($slash) nsp=true
+        { { $accept_link && [[ $cur != *:*:*:*:*:*     && $cur != *: ]] ; } ||
+          { $accept_ipv6 && [[ $cur != *:*:*:*:*:*:*:* && $cur != *:: && $cur != *.* ]] ; }
+        } && COMPREPLY+=($cur:)
 
-        if ! $definitely_complete
-        then
-            $maybe_ipv4 && [[ .$cur != *. ]] && COMPREPLY+=($dot)
-            $maybe_ipv6 && [[ $cur != *:: && $cur != *::*: ]] && COMPREPLY+=($col)
-            nsp=true
-        fi
+        [[ $cur != *.*.*.* && .$cur != *. ]] &&
+        { { $accept_ipv4 && [[ $cur != *[^.0-9]* ]] ; } ||
+          { $accept_ipv6 && [[ ( $cur = ::ffff:* && $cur != ::ffff:*[^.0-9]* ) ||
+                              ( $cur =      ::* && $cur !=      ::*[^.0-9]* ) ]] ; }
+        } && COMPREPLY+=($cur.)
+
+        $accept_prefix && [[ $cur = *::* || $cur = *:*:*:*:*:*:*:* || $cur = *.*.*.*[0-9] ]] && COMPREPLY+=($cur/)
 
     fi
 
-    __ip_debug "Completed last-term=$last_term (last-term-definitely-complete=$last_term_complete) no-space=$nsp compreply=[$(__ip_strtrunc 20 "${COMPREPLY[*]}")] (count=${#COMPREPLY[*]})"
-
-    ((${#COMPREPLY[@]} == 0)) && {
-        __ip_debug "No matches for '$cur'"
-        return 1
-    }
-
-    # completion treats colons as if they were word-separators, and appends to current word rather than replacing it
-    [[ $cur = *:* ]] &&
-    for ((i=0 ; i<${#COMPREPLY[@]} ; i++ )) do
-        COMPREPLY[i]="${COMPREPLY[i]#${cur%:*}:}"
-    done
-
-    ((${#COMPREPLY[@]} == 1)) && ! $nsp && COMPREPLY="$COMPREPLY "
+    __ip_debug "Completed compreply=[$(__ip_strtrunc 20 "${COMPREPLY[*]}")] (count=${#COMPREPLY[*]})"
 
     return 0
 }
@@ -196,7 +168,8 @@ __ip_complete_address()
 _ip()
 {
     local -a expect
-    local cur i options seen
+    local cur i seen
+    local save_device save_ipv=-46
 
     COMPREPLY=()
 
@@ -223,26 +196,25 @@ _ip()
     for ((i=1;i<COMP_CWORD;i++)) do
         cur=${COMP_WORDS[i]}
 
-        context=$expect ; unset expect[0] ; expect=("${expect[@]}")
+        expecting=$expect ; unset expect[0] ; expect=("${expect[@]}")
 
         __ip_debug "Matching on \"$expecting:$cur\""
         # If we're expecting a specific word
-        if [[ $context = ="$cur"* ]] ; then
+        if [[ $expecting = ="$cur"* ]] ; then
             # process word based on seen state rather than on the explicit expectation
-            context=$seen
-        elif [[ $context = =* ]] ; then
+            expecting=$seen
+        elif [[ $expecting = =* ]] ; then
             # didn't find it!
-            __ip_error "Expecting '${context#=}' instead of '$cur'"
+            __ip_error "Expecting '${expecting#=}' instead of '$cur'"
             return 1
         fi
 
-        __ip_debug "Matching on \"$seen:$cur\""
-        case $context:$cur in
+        __ip_debug "Matching \"$expecting:$cur\" with seen=$seen"
+        case $expecting:$cur in
 
         (START:-f*\
         |START:--f*)    expect=(FAMILY START) ;;
-        (START:-rc*\
-        |START:--rc*)   expect=(NUMBER START) ;; # --rcvbuf size
+        (START:-[46])   save_ipv=$cur ;;
         (START:-*) ;;
 
         (START:a*)      seen=addr ;;
@@ -392,14 +364,17 @@ _ip()
         (rule_A:ta*)    expect=(TABLE)  ;; # table
         (rule_A:to)     expect=(PREFIX) ;; # to
         (rule_A:tos)    expect=(TOS)    ;; # tos
-        (rule_A:u* )                    ;; # unreachable
+        (rule_A:u*)                     ;; # unreachable
 
         (tunnel:*)      seen=tunnel_${cur:0:1} ;;
 
+        (FAMILY:inet4)  save_ipv=-4 ;;
+        (FAMILY:inet6)  save_ipv=-6 ;;
+        (FAMILY:link)   ;;
         (DEVICE:*)      save_device=$cur ;;
         ([A-Z]*:*)      ;;
 
-        (*)             __ip_error "Lost sync? seen=$seen expect=$context cur=$cur" ; return 1 ;;
+        (*)             __ip_error "Lost sync? seen=$seen expect=$expecting cur=$cur" ; return 1 ;;
 
         esac
         : ${expect:=${seen%/*}}
@@ -408,375 +383,146 @@ _ip()
     done
     cur=$(_get_cword)
 
-    local nsp=false or_digits=false max_num= min_num=
+    local or_digits=false or_prefix=false max_num= min_num=
 
     case $expect in
-    (START) options=( addr link maddr monitor mroute neigh ntable route rule \
+    (START) COMPREPLY+=( addr link maddr monitor mroute neigh ntable route rule \
                       tunnel xfrm --details --family --oneline --resolve \
-                      -rcvbuf \
                       --statistics --timestamp --verbose --Version -0 -4 -6 \
                       -d -f -o -r -s -t -v -V ) ;;
 
-    (addr)  options=( add change flush del list show replace monitor ) ;;
+    (addr)  COMPREPLY+=( add change flush del list show replace monitor ) ;;
     (addr_A)
-            options=( anycast broadcast deprecated dev dynamic home label \
+            COMPREPLY+=( anycast broadcast deprecated dev dynamic home label \
                       nodad peer permanent preferred_lft primary scope \
                       secondary tentative to valid_lft ) ;;
     (addr_D)
-            options=( dev ) ;;
+            COMPREPLY+=( dev ) ;;
     (addr_S)
-            options=( anycast broadcast deprecated dev dynamic home label \
+            COMPREPLY+=( anycast broadcast deprecated dev dynamic home label \
                       nodad peer permanent primary scope secondary tentative \
                       to ) ;;
 
-    (link)  options=( list show set ) ;;
+    (link)  COMPREPLY+=( list show set ) ;;
     (link_S)
-            options=( address allmulticast arp broadcast down dynamic mtu \
+            COMPREPLY+=( address allmulticast arp broadcast down dynamic mtu \
                       multicast name promisc trailers txqueuelen up ) ;;
 
-    (maddr) options=( add del list show ) ;;
+    (maddr) COMPREPLY+=( add del list show ) ;;
 
     (monitor)
-            options=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
+            COMPREPLY+=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
 
     (mroute)
-            options=( list show ) ;;
+            COMPREPLY+=( list show ) ;;
 
     (neigh)
-            options=( add change del replace ) ;;
+            COMPREPLY+=( add change del replace ) ;;
 
     (ntable)
-            options=( change ) ;;
+            COMPREPLY+=( change ) ;;
 
-    (route) options=( add append change del flush get list show replace monitor ) ;;
+    (route) COMPREPLY+=( add append change del flush get list show replace monitor ) ;;
     (route_G)
-            options=( from oif tos ) ;;
+            COMPREPLY+=( from oif tos ) ;;
     (route_L)   # RTSELECTOR
-            options=( root match exact table proto type scope ) ;;
+            COMPREPLY+=( root match exact table proto type scope ) ;;
     (route_A)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
-            options=( via dev weight unicast local broadcast multicast \
-                      throw unreachable prohibit blackhole nat default \
-                      ...PREFIX... ) ;;
+            COMPREPLY+=( via dev weight unicast local broadcast multicast \
+                      throw unreachable prohibit blackhole nat default )
+            or_prefix=true ;;
     (route_P)   # ROUTE -> NODE_SPEC -> [TYPE] PREFIX
-            options=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
+            COMPREPLY+=( advmss cwnd dev equalize initcwnd metric mtu nexthop \
                       proto realms rto_min rtt rttvar scope src ssthresh \
                       table tos via weight window ) ;;
 
-    (rule)  options=( add del flush list show ) ;;
+    (rule)  COMPREPLY+=( add del flush list show ) ;;
     (rule_A)
-            options=( dev from fwmark goto iif lookup not pref prio prohibit \
+            COMPREPLY+=( dev from fwmark goto iif lookup not pref prio prohibit \
                       realms reject table to tos unreachable ) ;;
     (rule_L)
-            options=() nsp=false ;;
+            ;;
 
     (tunnel)
-            options=( add change del list show ) ;;
+            COMPREPLY+=( add change del list show ) ;;
 
-    (xfrm)  options=( policy state monitor ) ;;
+    (xfrm)  COMPREPLY+=( policy state monitor ) ;;
 
-    (=*)    options=( ${expect#=} ) ;;
+    (=*)    COMPREPLY+=( ${expect#=} ) ;;
 
     (DEVICE)
-            #options=( '$( a=(/proc/sys/net/ipv?/conf/*) ; echo "${a[@]##*/}" )' ) ;;
-            options=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' ) ;;
+            COMPREPLY+=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' ) ;;
     (FAMILY)
-            options=( inet inet6 ipx dnet link ) ;;
-    (LFT)   options=( forever ) or_digits=true max_num=255 ;;
+            COMPREPLY+=( inet inet6 ipx dnet link ) ;;
+    (LFT)   COMPREPLY+=( forever ) or_digits=true max_num=255 ;;
     (NUMBER)
-            options=() or_digits=true ;;
+            or_digits=true ;;
     (NUMBER8)
-            options=() or_digits=true max_num=0xff ;;
-    (NUMBER16)
-            options=() or_digits=true max_num=0xffff ;;
-    (NUMBER32)
-            options=() or_digits=true max_num=0xffffffff ;;
-    (NUMBER31S)
-            options=() or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
-    (ONOFF) options=( on off ) ;;
-    (REALM) options=( '$(__ip_slurp /etc/iproute2/rt_realms)' )
             or_digits=true max_num=0xff ;;
-    (SCOPE) options=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
-    (ADDR)  __ip_complete_address -4 -6 $cur ; return $? ;;
-    (MADDR) __ip_complete_address -m -4 -6 $cur ; return $? ;;
+    (NUMBER16)
+            or_digits=true max_num=0xffff ;;
+    (NUMBER32)
+            or_digits=true max_num=0xffffffff ;;
+    (NUMBER31S)
+            or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
+    (ONOFF) COMPREPLY+=( on off ) ;;
+    (REALM) COMPREPLY+=( '$(__ip_slurp /etc/iproute2/rt_realms)' )
+            or_digits=true max_num=0xff ;;
+    (SCOPE) COMPREPLY+=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
+    (ADDR)  __ip_complete_address $save_ipv $cur || return $? ;;
+    (MADDR) __ip_complete_address $save_ipv -m $cur || return $? ;;
     (LLADDR)
-            options=( 00:00:00:00:00:00 ... ) ;;
+            __ip_complete_address -0 $cur ;;
     (PREFIX)
-            __ip_complete_address -P -4 -6 $cur ; return $? ;;
-    (LABEL) options=( $save_device: ) nsp=true ;;
-    (TABLE) options=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
+            __ip_complete_address $save_ipv -P $cur || return $? ;;
+    (LABEL) COMPREPLY+=( $save_device: ) ;;
+    (TABLE) COMPREPLY+=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
             or_digits=true max_num=255 ;;
     (TABLE+)
-            options=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
+            COMPREPLY+=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' )
             or_digits=true max_num=255 min_num=-2 ;;
-    (RTYPE) options=( blackhole broadcast local multicast nat prohibit throw \
+    (RTYPE) COMPREPLY+=( blackhole broadcast local multicast nat prohibit throw \
                       unicast unreachable ) ;;
     (RTPROTO)
-            options=( boot kernel static ) or_digits=true max_num=255 ;;
-    (TOS)   options=( inherit ) or_digits=true max_num=255 ;;
+            COMPREPLY+=( boot kernel static ) or_digits=true max_num=255 ;;
+    (TOS)   COMPREPLY+=( inherit ) or_digits=true max_num=255 ;;
 
     (K_options) ;;
-    (*)     options=( "Undefined:$expect" )
+
+    (*)     __ip_error "Undefined expect=[$expect] seen=[${seen##*/}]" ;;
     esac
-    __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits cur=$cur"
+
+    __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits or_prefix=$or_prefix cur=$cur"
+
+    $or_prefix && __ip_complete_address $save_ipv -p $cur
 
     if $or_digits && [[ ${cur#-} != *[^0-9]* ]]
     then
-        [[ $cur != '-' ]] && options+=( ${cur} )
+        [[ $cur != '-' ]] && COMPREPLY+=( ${cur} )
         if (( (!${#max_num} || cur*10 <= max_num) &&
               (!${#min_num} || cur*10 >= min_num) ))
-        then options+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 \
-                        ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
-        else nsp=false
+        then COMPREPLY+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 \
+                          ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
         fi
     fi
 
-    COMPREPLY=( $( compgen -W "${options[*]}" -- $cur ) )
+    COMPREPLY=( $( compgen -W "${COMPREPLY[*]}" -- $cur ) )
 
-    ((${#COMPREPLY[@]} == 1)) && ! $nsp && COMPREPLY="$COMPREPLY "
+    ((${#COMPREPLY[@]} == 0)) && {
+        __ip_debug "No matches for '$cur'"
+        return 1
+    }
+
+    # completion treats colons as if they were word-separators, and appends to current word rather than replacing it
+    [[ $cur = *:* ]] &&
+    for ((i=0 ; i<${#COMPREPLY[@]} ; i++ )) do
+        COMPREPLY[i]="${COMPREPLY[i]#${cur%:*}:}"
+    done
+
+    ((${#COMPREPLY[@]} == 1)) && [[ $COMPREPLY != *[.:] ]] && COMPREPLY="${COMPREPLY% } "
 
     return 0
 }
-COMP_VERBOSE=false
+
+#COMP_VERBOSE=false
 complete -F _ip -o nospace ip
-
-return
-
-: <<'EndOfDocs'
-Output from "ip help", then "ip addr help" etc ...
-
-################################################################################
--Version
-
-ip utility, iproute2-ss100519
-
-################################
-
-
-Usage: ip OPTIONS OBJECT { COMMAND | help }
-       ip [ -force ] -batch { FILENAME | - }
-Where  OBJECT := { addr
-                 | addrlabel
-                 | link
-                 | maddr
-                 | monitor
-                 | mroute
-                 | neigh
-                 | ntable
-                 | route
-                 | rule
-                 | tunnel
-                 | tuntap
-                 | xfrm }
-       OPTIONS := [ { -d[etails]
-                    | -f[amily] { dnet
-                                | inet
-                                | inet6
-                                | ipx
-                                | link }
-                    | -o[neline]
-                    | -r[esolve]
-                    | -rc[vbuf] [size]
-                    | -s[tatistics]
-                    | -t[imestamp]
-                    | -V[ersion] } ... ]
-
-################################
-addr
-
-Usage: ip addr { add
-               | change
-               | replace } IFADDR dev STRING
-                                  [ LIFETIME ... ]
-                                  [ CONFFLAG ... ]
-       ip addr del IFADDR dev STRING
-       ip addr { flush
-               | show } [ dev STRING ]
-                        [ scope SCOPE-ID ]
-                        [ to PREFIX ]
-                        [ FLAG ... ]
-                        [ label PATTERN ]
-IFADDR := { PREFIX
-          | ADDR peer PREFIX } [ { anycast ADDR 
-                                 | broadcast ADDR 
-                                 | label STRING 
-                                 | scope SCOPE-ID } ... ]
-SCOPE-ID := { global
-            | host
-            | link
-            | NUMBER }
-FLAG := { dadfailed
-        | deprecated
-        | dynamic
-        | permanent
-        | primary
-        | secondary
-        | temporary
-        | tentative
-        | CONFFLAG }
-CONFFLAG := { home
-            | nodad }
-LIFETIME := { preferred_lft LFT
-            | valid_lft LFT }
-LFT := forever
-     | SECONDS
-
-################################
-addrlabel
-
-Usage: ip addrlabel { add
-                    | del
-                    | flush
-                    | list } prefix PREFIX
-                             [ dev DEV ]
-                             [ label LABEL ]
-
-################################
-link
-
-Usage: ip link set DEVICE { address LLADDR |
-	                    allmulticast { on | off } |
-	                    arp { on | off } |
-	                    dynamic { on | off } |
-	                    mtu MTU |
-	                    multicast { on | off } |
-	                    name NEWNAME |
-	                    promisc { on | off } |
-	                    trailers { on | off } |
-	                    txqueuelen PACKETS |
-                            broadcast LLADDR |
-                            down |
-                            up }
-       ip link show [ DEVICE ]
-
-################################################################################
-
-Usage: ip maddr [ add
-                | del ] MULTIADDR dev STRING
-       ip maddr show [ dev STRING ]
-
-################################################################################
-
-Usage: ip monitor [ all
-                  | LISTofOBJECTS ]
-
-################################################################################
-
-Usage: ip mroute show [ PREFIX ]
-                      [ from PREFIX ]
-                      [ iif DEVICE ]
-
-################################################################################
-
-Usage: ip neigh { add
-                | del
-                | change
-                | replace } { ADDR [ lladdr LLADDR ]
-                                   [ nud { permanent
-                                         | noarp
-                                         | stale
-                                         | reachable } ]
-                            | proxy ADDR }
-                            [ dev DEV ]
-       ip neigh { show
-                | flush } [ to PREFIX ]
-                          [ dev DEV ]
-                          [ nud STATE ]
-
-################################################################################
-
-Usage: ip ntable change name NAME [ dev DEV ]
-                                  [ thresh1 VAL ]
-                                  [ thresh2 VAL ]
-                                  [ thresh3 VAL ]
-                                  [ gc_int MSEC ]
-                                  [ base_reachable MSEC ]
-                                  [ retrans MSEC ]
-                                  [ gc_stale MSEC ]
-                                  [ delay_probe MSEC ]
-                                  [ queue LEN ]
-                                  [ app_probs VAL ]
-                                  [ ucast_probes VAL ]
-                                  [ mcast_probes VAL ]
-                                  [ anycast_delay MSEC ]
-                                  [ proxy_delay MSEC ]
-                                  [ proxy_queue LEN ]
-                                  [ locktime MSEC ]
-Usage: ip ntable show [ dev DEV ]
-                      [ name NAME ]
-
-################################################################################
-
-Usage: ip route { list
-                | flush } RTSELECTOR
-       ip route get ADDRESS [ from ADDRESS iif STRING ]
-                            [ oif STRING ]
-                            [ tos TOS ]
-       ip route { add
-                | del
-                | change
-                | append
-                | replace
-                | monitor } ROUTE
-
-RTSELECTOR := [ root PREFIX ]
-              [ match PREFIX ]
-              [ exact PREFIX ]
-              [ table TABLE_ID ]
-              [ proto RTPROTO ]
-              [ type TYPE ]
-              [ scope SCOPE ]
-ROUTE := NODE_SPEC [ INFO_SPEC ]
-NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]
-                             [ table TABLE_ID ]
-                             [ proto RTPROTO ]
-                             [ scope SCOPE ]
-                             [ metric METRIC ]
-INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...
-NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS
-OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]
-           [ rtt TIME ] [ rttvar TIME ]
-           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]
-           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]
-           [ rto_min TIME ]
-TYPE := [ unicast | local | broadcast | multicast | throw |
-          unreachable | prohibit | blackhole | nat ]
-TABLE_ID := [ local | main | default | all | NUMBER ]
-SCOPE := [ host | link | global | NUMBER ]
-FLAGS := [ equalize ]
-MP_ALGO := { rr | drr | random | wrandom }
-NHFLAGS := [ onlink | pervasive ]
-RTPROTO := [ kernel | boot | static | NUMBER ]
-TIME := NUMBER[s|ms|us|ns|j]
-
-################################################################################
-
-Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION
-SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]
-            [ dev STRING ] [ pref NUMBER ] [ prio NUMBER ]
-ACTION := [ table TABLE_ID ]
-          [ prohibit | reject | unreachable ]
-          [ realms [SRCREALM/]DSTREALM ]
-          [ goto NUMBER ]
-TABLE_ID := [ local | main | default | NUMBER ]
-
-################################################################################
-
-Usage: ip tunnel { add | change | del | show } [ NAME ]
-          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]
-          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]
-          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]
-
-Where: NAME := STRING
-       ADDR := { IP_ADDRESS | any }
-       TOS  := { NUMBER | inherit }
-       TTL  := { 1..255 | inherit }
-       KEY  := { DOTTED_QUAD | NUMBER }
-
-################################################################################
-
-Usage: ip xfrm XFRM_OBJECT { COMMAND | help }
-where  XFRM_OBJECT := { state | policy | monitor }
-
-################################################################################
-
-EndOfDocs
