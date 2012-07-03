@@ -5,15 +5,16 @@
 # Written by Martin D Kealey <martin@kurahaupo.gen.nz>
 #
 # Released at LCA2010, 19 January 2010.
+# Updated to use proper parser state-stack April 2012.
 #
-# You may copy and use this program under the terms of version two of the Gnu Public Licence, or
-# any later version as published by the Free Software Foundation.
+# You may copy and use this program under the terms of version three of the Gnu
+# Public Licence, or any later version as published by the Free Software
+# Foundation.
 #
 
 [[ $(type -t have) != function ]] || have ip || return
 
-__ip_slurp()
-{
+__ip_slurp() {
     sed -e '
              s/#.*//
              s/[        ][      ]*/ /g
@@ -24,8 +25,7 @@ __ip_slurp()
             ' $1
 }
 
-__ip_strtrunc()
-{
+__ip_strtrunc() {
     local w=$1 ; shift
     local p="$*"
     ((${#p} > w)) && p="${p:0:w-3}..."
@@ -35,7 +35,7 @@ __ip_strtrunc()
 __ip_debug() { : ; }
 __ip_debug_parsing_state() { : ; }
 __ip_debug_unexpected() { : ; }
-__ip_error() { : ; }
+__ip_error() { break 2 ; }
 __ip_warning() { : ; }
 
 __ip_map() {
@@ -61,225 +61,277 @@ __ip_seq() {
     echo $___r
 }
 
-__ip_complete_address()
-{
-    local accept_link=false accept_ipv4=false accept_ipv6=false accept_prefix=false \
-          possibly_complete=false definitely_complete=false \
-          require_prefix=false require_multicast=false require_unicast=false
+__ip_match_number() {
+    local _p _t __set_var= __max= __min=0 __ignore_prefix= __radix=auto __fake_cur
+    while [[ $1 = -* ]]
+    do
+        case $1 in
+        ( --[0-9]*bit )     __max=${1##*[^0-9]} __max=${__max%%[^0-9]*} ; ((__min=0, __max=(1<<__max)-1)) ;;
+        ( --max*=* )        __max=${1#--*=} ;;
+        ( --min*=* )        __min=${1#--*=} ;;
+        ( --s*[0-9]*bit )   __max=${1##*[^0-9]} __max=${__max%%[^0-9]*} ; ((__min=(-1<<__max-1), __max=(1<<__max-)-1)) ;;
+        ( -A )              __radix=auto ;;
+        ( -C* )             __fake_cur=${1#-?} ;;
+        ( -N )              __ignore_prefix='*[^0-9a-f]' ;;
+        ( -P )              __ignore_prefix=$2 ; shift ;;
+        ( -P?* )            __ignore_prefix=${1#-?} ;;
+        ( -B?* )            __radix=${1##*[^0-9]} ;;
+        ( -V )              __set_var=_V ;;
+        ( -V?* )            __set_var=${1#-?} ;;
+        (*)                 __ip_error "Invalid option '$1' to __ip_match_number" ;;
+        esac
+        shift
+    done
 
-    while (($#)) ; do  case $1 in
-    (--) shift ; break ;;
-    (-0) accept_link=true ;;
-    (-46|-64) accept_ipv4=true accept_ipv6=true ;;
-    (-4) accept_ipv4=true ;;
-    (-6) accept_ipv6=true ;;
-    (-p) accept_prefix=true ;;
-    (-P) require_prefix=true ;;
-    (-a) require_unicast=true ;;
-    (-m) require_multicast=true ;;
-    (-*) ;;
-    (*) break ;;
-    esac ; shift ; done
+    local __cur="${__fake_cur-${COMP_WORDS[cword_index]}}"
+    local __num="${__cur##$__ignore_prefix}"
+    local __saved_prefix="${__cur%"$__num"}"
+    local __neg="${__num%%[^-]*}" ; __num="${__num#"$__neg"}" __neg="${__neg#----}" __neg="${__neg#--}"
 
-    local cur=$1
-
-    __ip_debug "Completing address starting with '$cur': ipv4=$accept_ipv4 ipv6=$accept_ipv6 prefix=$accept_prefix/$require_prefix "
-
-    if $require_prefix && [[ $cur = d* && default = $cur* || $cur = ::/0 || $cur = 0.0.0.0/0 ]]
+    if ((cword_index==COMP_CWORD))
     then
-        __ip_warning "Expecting a non-default prefix"
-        COMPREPLY=(default\ )
-        return 0
-    fi
-
-    [[ $cur = *::* ]] && possibly_complete=true
-    [[ $cur = *:*:*:*:*:*:*:* || $cur = *.*.*.* ]] && possibly_complete=true definitely_complete=true
-    [[ $cur = *[:a-f]* || $cur = [0-9][0-9][0-9][0-9]* ]] && accept_ipv4=false
-    [[ $cur = *.* ]] && accept_ipv6=false
-
-    __ip_debug "Completing address starting with '$cur': ipv4=$accept_ipv4 ipv6=$accept_ipv6 prefix=$accept_prefix/$require_prefix possibly-complete=$possibly_complete definitely-complete=$definitely_complete"
-
-    # sanity check
-    $accept_link || $accept_ipv4 || $accept_ipv6 || {
-        __ip_warning "Invalid address; neither Link nor IPv4 nor IPv6 possible"
-        return 1
-    }
-
-    case $cur in
-    (.* \
-    |*..* \
-    |*.*.*.*.* \
-    |*:::* \
-    |*:*:*:*:*:*:*:*:* \
-    |*/*[:./]* \
-    |*.*[:a-f]* \
-    |*[:a-f]*.* \
-    |*[^/.:0-9a-f]* )
-        __ip_debug "Address '$cur' is neither valid IPv4 nor valid IPv6"
-        return 1 ;;
-    esac
-
-    [[ ${cur%/*} = *[:a-f]* ]] && ! $accept_ipv6 && {
-        __ip_debug "Invalid IPv4 address $cur"
-        return 1
-    }
-    [[ ${cur%/*} = *.* ]] && ! $accept_ipv4 && {
-        __ip_debug "Invalid IPv6 address $cur"
-        return 1
-    }
-
-    local d19=$( __ip_seq 1 9 $cur )    #   "${cur}1 ${cur}2 ${cur}3 ${cur}4 ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9"
-    local d09="${cur}0 $d19"
-    local d0f="$d09 "$( __ip_prefix_map "$cur" a b c d e f )   #   "$d09 ${cur}a ${cur}b ${cur}c ${cur}d ${cur}e ${cur}f"
-    local dot=$cur.
-    local col=$cur:
-    local slash=$cur/
-
-    COMPREPLY=()
-
-    if [[ $cur = */* ]]
-    then
-        local pref_len=${cur##*/} max_pref_len=32
-        $accept_ipv6 && max_pref_len=128
-
-        [[ $pref_len = *[^0-9]* ]] && {
-            __ip_error "Prefix-length '$pref_len' is non-numeric"
-            return 1
-        }
-        (( pref_len > max_pref_len )) && {
-            __ip_error "Prefix-length '$pref_len' is greater than $max_pref_len"
-            return 1
-        }
-
-        if [[ $pref_len != '' ]]
+        __ip_debug "MATCHNUM $*"
+        if [[ $__radix = auto ]]
         then
-            COMPREPLY+=($cur)
+            case $__cur in
+            (0x*) __radix=16 ;;
+            (0*)  __radix=8 ;;
+            (*)   __radix=10 ;;
+            esac
         fi
+        if
+            local __rp=
+            case $__radix in
+            (8)  __rp=0  ; [[ $__num != *[^0-7]* ]]    ;;
+            (10)           [[ $__num != *[^0-9]* ]]    ;;
+            (16) __rp=0x ; [[ $__num != *[^0-9a-f]* ]] ;;
+            (*)  __ip_error "Radix $__radix is not supported" ;;
+            esac
+        then
+            __num=${__num#$__rp}
+            __num=${__num#0000} __num=${__num#00} __num=${__num#0}
+            if [[ $__neg = - ]]
+            then
+                case $__min:$__max in
+                (:?*)   ((__min=-__max)) ; __max= ;;
+                (*?:)   ((__max=-__min)) ; __min= ;;
+                (*?:?*) eval "(( __min=-($__max), __min=-($__min) )) " ;;
+                esac
+            fi
 
-        if (( pref_len * 10 > max_pref_len ))
-        then
-            __ip_warning "Prefix length is greater than ${max_pref_len%?}, therefore we're finished"
-        elif (( pref_len * 10 + 9 > max_pref_len ))
-        then
-            COMPREPLY+=( $( __ip_seq 0 $((max_pref_len%10)) $cur ) )
+            local __i
+            (( __i = $__rp${__num:-0} ))
+
+            [[ -n $__set_var ]] && eval "(( $__set_var = __i ))"
+
+            (( __min <= __i && __i <= __max )) && COMPREPLY+=("$__cur")
+
+            local __min_digit __max_digit
+
+            (( __offset = __i * __radix ))
+            while
+                (( __min_digit = (${#__min}==0 || __min < __offset ? 0 : __min - __offset),
+                   __max_digit = (${#__max}==0 || __max >= __offset+__radix ? __radix-1 : __max - __offset ) ))
+                (( __min_digit >= __radix ))
+            do
+                __ip_debug "MATCHNUM: $__cur->$__rp$__num->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit) RETRY"
+                (( __min/=__radix, __max/=__radix ))
+            done
+            __ip_debug "MATCHNUM: $__cur->$__rp$__num->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit)"
+
+            local -a __digits=( 0 1 2 3 4 5 6 7 8 9 a b c d e f )
+            for ((__i=__min_digit;__i<=__max_digit;++__i)) do
+                COMPREPLY+=("${__cur}${__digits[__i]}")
+            done
         else
-            COMPREPLY+=($d09)
+            __ip_warning "MATCHNUM $__cur not suitable for radix $__radix"
         fi
+        return 1
     else
-        if $require_multicast && [[ $cur != *[:.]* ]]
-        then
-            $accept_link && COMPREPLY+=( ff:ff:ff:ff:ff:ff )
-            $accept_ipv4 && COMPREPLY+=( $( __ip_seq 224 239 ) )
-            $accept_ipv6 && COMPREPLY+=( ffc0:: )
-            __ip_debug "Start of multicast range"
-            return 0
-        fi
-
-        local last_term=${cur##*[:.]}
-
-        if  # is last word of address complete?
-            { $accept_ipv6 && [[ $last_term = [0-9a-f][0-9a-f][0-9a-f][0-9a-f] ]] ; } ||
-            { $accept_ipv4 &&
-                [[ $last_term != *[^0-9]* &&
-                   $last_term = [0-9]* ]] &&
-                (( last_term >= 26 ||
-                   last_term == 0 )) ; }
-        then
-            :
-        elif $accept_ipv6
-        then COMPREPLY+=($d0f)
-        elif [[ $last_term = '' ]]
-        then COMPREPLY+=($d09)
-        else COMPREPLY+=($d19)
-        fi
-
-        $accept_prefix && $possibly_complete && COMPREPLY+=($slash)
-
-        if ! $definitely_complete
-        then
-            $accept_ipv4 && [[ .$cur != *. ]] && COMPREPLY+=($dot)
-            $accept_ipv6 && [[ $cur != *:: && $cur != *::*: ]] && COMPREPLY+=($col)
-        fi
-
+        __ip_debug "PARSENUM $*"
+        [[ -n $__set_var ]] && eval "(( $__set_var = __cur ))"
+        [[ $__cur = ?*   && $__cur != *[^0-9]*      ]] && return 0
+        [[ $__cur = 0x?* && $__cur != 0x*[^0-9a-f]* ]] && return 0
+        [[ $__radix = 16 && $__cur != *[^0-9a-f]*   ]] && return 0
+        return 1
     fi
-
-    __ip_debug "Completed compreply=[$(__ip_strtrunc 20 "${COMPREPLY[*]}")] (count=${#COMPREPLY[*]})"
-
-    return 0
-}
-
-# When a non-terminal is matched by ZERO words (an empty match), retry the same
-# current word, having already popped the non-terminal.
-__ip_redo()  {
-    ((--cword_index))
-    continue
 }
 
 #
 # __ip_match relies on two external variables: COMP_WORDS[], COMP_WORD & cword_index.
 #
-# 'return' means subsidiary processing will continue, including possible further iterations of the match loop
-# 'break' means the match loop will cease and possible completions computed so far will be used
-# 'break 2' means all processing will immediately stop
-# 'decrement cword_index and continue' means the match loop will start over, testing the same word against the previous non-terminal
+# the match-list elements are of the form word[=token]
+# the word is included in COMPREPLY
+# if a token is given, it is used to set the -S or -V parameter, otherwise word is used
+# (this simplifies aliases such as list/show)
 #
+
 __ip_match() {
-    local __match_empty=false _p _q __set_var __cur
+    local __seen_pref= _p= _t= __set_var= __cur=
     while [[ $1 = -* ]]
     do
         case $1 in
-        ( - | ---match-empty ) __match_empty=true ;;
-        ( -V | ---set-var )    __set_var=$2 ; shift ;;
-        ( -V?* )               __set_var=${1#:2} ;;
-        ( ---set-var=* )       __set_var=${1#--*=} ;;
-        (*)                    __ip_error "Invalid option '$1' to __ip_match" ; return 2 ;;
+        ( -S )      __seen_pref=$2 ; shift ;;
+        ( -S?* )    __seen_pref=${1#-?} ;;
+        ( -V )      __set_var=_V ;;
+        ( -V?* )    __set_var=${1#-?} ;;
+        (*)         __ip_error "Invalid option '$1' to __ip_match" ;;
         esac
         shift
     done
     if ((cword_index==COMP_CWORD))
     then
-        COMPREPLY+=( "${@#*~}" )
-        if $__match_empty
+        __ip_debug "MATCH $*"
+        if [[ -n $__seen_pref ]]
         then
-            ((--cword_index))
-            continue
+            for _p do
+                _p="${_p%=*}"
+                [[ $_p != *[^_a-z0-9]* && $_p != [0-9]* ]] &&
+                    eval \${${__seen_pref}$_p:+:} false && {
+                    __ip_debug "Excluding $_p (already seen)"
+                    continue
+                }
+                __ip_debug "Including $_p (not already seen)"
+                COMPREPLY+=( "$_p" )
+            done
         else
-            break
+            __ip_debug "Including all of [$*] (not tracking 'seen')"
+            COMPREPLY+=( "${@}" )
         fi
+        return 1
     else
+        __ip_debug "PARSE $*"
         __cur=${COMP_WORDS[cword_index]}
         for _p do
-            if [[ $_p = *\~* ]]
-            then _q=${_p%\~*} _p=${_p#*\~}
-            else _q=${_p:0:1}
-            fi
-            [[ $__cur = $_q* && $_p = $__cur* ]] || continue
-            [[ -n $__set_var ]] && eval $__set_var='${_p#*~}'
+            _t="${_p##*=}" _p="${_p%=*}"
+            [[ $__cur = ?* && $_p = $__cur* ]] || continue
+            [[ -n $__seen_pref && $_p != *[^_a-z0-9]* && $_p != [0-9]* ]] && {
+                eval $__seen_pref$_p=true
+                __ip_debug "Remembering that $_ has been seen"
+            }
+            [[ -n $__set_var ]] && {
+                __ip_debug "SETTING $__set_var='${_t}'"
+                eval $__set_var='${_t}'
+            }
             return 0
         done
-        if $__match_empty
-        then
-            ((--cword_index))
-            continue
-        fi
+        return 1
+    fi
+}
+
+__ip_match_addr() {
+    local accept_link=false accept_ipv4=false accept_ipv6=false accept_prefix=false \
+          accept_default=false possibly_complete=false definitely_complete=false \
+          require_prefix=false require_multicast=false require_unicast=false
+    local __set_var=
+
+    while [[ $1 = -* ]]
+    do
+        case $1 in
+        ( -V )          __set_var=_V ;;
+        ( -V?* )        __set_var=${1#-?} ;;
+        ( -0 )          accept_link=true ;;
+        ( -46 | -64 )   accept_ipv4=true accept_ipv6=true ;;
+        ( -4 )          accept_ipv4=true ;;
+        ( -6 )          accept_ipv6=true ;;
+        ( -p )          accept_prefix=true ;;
+        ( -P )          require_prefix=true ;;
+        ( -d )          accept_default=true ;;
+        ( -a )          require_unicast=true ;;
+        ( -m )          require_multicast=true ;;
+        ( -* )          __ip_warning "Invalid option '$1' to __ip_match_addr" ; break 3 ;;
+        (*) break ;;
+        esac
+        shift
+    done
+
+    local __cur="${COMP_WORDS[cword_index]}"
+
+    __ip_debug "Completing address starting with '$cur': ipv4=$accept_ipv4 ipv6=$accept_ipv6 prefix=$accept_prefix/$require_prefix "
+
+    case $__cur in
+    (*.*.*.*.*|*:*:*:*:*:*:*:*:*)
+                __ip_error "$__cur is not valid IPv4 or IPv6 address" ;;
+    esac
+
+    case $__cur in
+    (*:*/*)     __ip_match_number -N -B10 --min=1 --max=128 ;;
+    (*.*.*.*/*) __ip_match_number -N -B10 --min=1 --max=32  ;;
+    (*.*)       __ip_match_number -N -A   --8bit ;;
+    (::*)       __ip_match_number -N -B16 --16bit ||
+                { [[ $__cur != ::*:* ]] && __ip_match_number -N -A --8bit ; } ;;
+    (*:*)       __ip_match_number -N -B16 --16bit ;;
+    (*)         __ip_match_number -N -A --8bit ||
+                __ip_match_number -N -B16 --min=0x2000 --max=0x3fff ||
+                __ip_match 0000: fc00:: fe80:: ;;
+    (*)         false ;;
+    esac ||
+
+    case $__cur in
+    (*/*)       false ;;
+    (*.*.*.*|*::*|*:*:*:*:*:*:*:*)
+                __ip_match $__cur/ ;;
+    (*)         false ;;
+    esac ||
+
+    case $__cur in
+    (*/*|*.*|*::|*::*:)
+                false ;;
+    (*)         __ip_match $__cur: ;;
+    esac ||
+
+    case $__cur in
+    (*[:/a-f]*|*[^.][^.][^.][^.]|*.*.*.*|*.) false ;;
+    (*)         __ip_match $__cur. ;;
+    esac ||
+
+    return $?
+
+    [[ -n $__set_var ]] && eval "$__setvar=\"\$__cur\""
+
+    return 0
+}
+
+#
+# __ip_match_empty and __ip_match_fail may be called when other matching functions return non-zero;
+# they take some rather peculiar action as a result:
+#
+# 'break' means the match loop will cease and possible completions computed so far will be used
+# 'break 2' means all processing will immediately stop, and no completions will be available
+# 'decrement cword_index and continue' means the match loop will start over, testing the same word against the previous non-terminal
+#
+
+__ip_match_empty()  {
+    __ip_debug_parsing_state EMPTY
+    ((--cword_index))
+    continue
+}
+
+__ip_match_fail() {
+    __ip_debug_parsing_state FAIL
+    if ((__empty))
+    then
+        ((--cword_index))
+        continue
+    elif ((cword_index==COMP_CWORD))
+    then
+        break
     fi
     break 2
 }
 
-_ip()
-{
-    # seen is stack of partial states, as a string separated by slashes, shallowest-to-deepest
-    local seen=START
+_ip() {
+    # "seen" is stack of partial states, as a string separated by slashes, shallowest-to-deepest
+    local seen=
     local cur="(start-of-line)"
     local cword_index=0
     local save_device=
     local save_ipv=-46
     local want=
-    local or_digits=false max_num min_num
+    local max_num= min_num=
     local cur_is_decnumber=false cur_is_hexnumber=false
-    local expecting
-    local seen_route_nexthop=false
-    local seen_prefix_nexthop=false
+    local expecting=
+    local seen_prefix=false
 
     COMPREPLY=()
 
@@ -288,15 +340,15 @@ _ip()
         echo >&2 $'\e7\e[A\e[999I\e[43;30m\e[1J\e[5H'"Completion START: WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD"
         trap " trap RETURN ; echo -n >&2 'Completion END: COMPREPLY=('\${COMPREPLY[*]}')'\$'\\e[49;39;0m\\e8' " RETURN
         __ip_debug() { echo >&2 "Completion $*" ; }
-        __ip_debug_parsing_state() { echo >&2 "Completion STATE $* word[$cword_index]: seen=(${seen[*]}) curr=$cur" ; }
+        __ip_debug_parsing_state() { local tag=$1 ; shift ; echo >&2 "Completion STATE $tag word[$cword_index]=$cur seen=$seen $*" ; }
         __ip_debug_unexpected() { echo >&2 "Completion UNEXPECTED $*" ; }
-        __ip_error() { echo >&2 "Completion ERROR $*" ; }
+        __ip_error() { echo >&2 "Completion ERROR $*" ; break 3 ; }
         __ip_warning() { echo >&2 "Completion WARNING $*" ; }
     else
         __ip_debug() { : ; }
         __ip_debug_parsing_state() { : ; }
         __ip_debug_unexpected() { : ; }
-        __ip_error() { local t="$*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; }
+        __ip_error() { local t="  $*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; break 3 ; }
         __ip_warning() { : ; }
     fi
 
@@ -304,110 +356,117 @@ _ip()
         # dummy loop
         for ((cword_index=1;cword_index<=COMP_CWORD;cword_index++)) do  # {{{
 
-            __ip_debug_parsing_state P1
-
             cur=${COMP_WORDS[cword_index]}
 
-            or_digits=false max_num= min_num=
+            __ip_debug_parsing_state P1
 
-            if ((cword_index==COMP_CWORD)) && [[ $want != '' && $cur != '' && $want = $cur* ]]
-            then
-                COMPREPLY=("$want ")
-                return 0
-            fi
+            [[ -n $want ]] && __ip_match "$want " && break
+
+            want=
 
             local cur_is_decnumber=false cur_is_hexnumber=false
             [[ $cur != '' && $cur != *[^0-9]* ]] && cur_is_decnumber=true
             [[ $cur = 0x* && $cur != 0x*[^0-9a-f]* ]] && cur_is_hexnumber=true
 
-            want=
-
             __ip_debug "word[$cword_index]=\"$cur\" seen=\"$seen\""
 
-            local _s __expecting=${seen##*/} ; seen=${seen%/*}
+            local _s expecting=${seen##*/} ; seen=${seen%/*}
 
-            [[ $__expecting = =* ]] && want=${__expecting#=} __expecting=${seen##*/} seen=${seen%/*}
+            [[ $expecting = =* ]] && want=${expecting#=} expecting=${seen##*/} seen=${seen%/*}
 
             local -a _S=()
             local __empty=
 
-            [[ $_expecting = '?'* ]] && __empty=---match-empty _expecting=${_expecting#'?'}
+            [[ $expecting = '?'* ]] && __empty=1 expecting=${expecting#'?'}
 
-            case $__expecting in  # {{{
+            __ip_debug_parsing_state P2 expecting=$expecting ${want:+want=$want} ${__empty:+empty=$__empty}
 
-            (START)         __ip_match -V_s addr link maddr monitor mroute neigh ntable route rule tunnel xfrm --batch --details --family --oneline --resolve  --statistics --timestamp --verbose --Version -0 -4 -6 -b -d -f -o -r -s -t -v -V
+            case $expecting in  # {{{
+
+            (START)         __ip_match -V_s addr addrlabel link maddr monitor mroute neigh ntable route rule tunnel tuntap xfrm --batch --details --family --oneline --resolve -rcvbuf  --statistics --timestamp --verbose --Version -0 -4 -6 -b -d -f -o -r -s -t -v -V
                             case $_s in
                             (-f|--family) seen+=/FAMILY ;;
                             (-[46])   save_ipv=$cur ;;
                             (-b?*)    save_batchfile=${cur:2} ;;
                             (-b)      seen+=/BATCHFILE ;;
                             (--batch) seen+=/BATCHFILE ;;
+                            (--rcvbuf) seen+=/NUMBER ;;
                             (*)       seen=$_s ;;
                             esac
                             ;;
 
             (BATCHFILE)     save_batchfile=$cur ;;
-            (FAMILY)        __ip_match -V_s dnet inet inet6 ipx link
+            (FAMILY)        __ip_match -V_s dnet inet inet6 ipx link || __ip_match_fail
                             case $_s in
                             (inet)   save_ipv=-4 ;;
                             (inet6)  save_ipv=-6 ;;
                             esac
                             ;;
 
-            (addr)          __ip_match -V_s add change del flush list monitor replace show
+            (addr)          __ip_match -V_s add change del flush list monitor replace show ||
+                            __ip_match_fail
+                            seen+="+$_s"
                             case $_s in
-                            (flush|list|show) seen+=+L ;;
-                            (add|change|del|replace) seen+=+r+A1/PREFIX/?RTYPE ;;
-                            (get) seen+=+G/ADDR ;;
+                            (add|change|del|replace) seen+="/=dev/?PREFIX" ;;
+                            (flush|list|show) ;;
+                            (get) seen+="/ADDR" ;;
                             esac
                             ;;
 
-            (addr+L)        __ip_match -V_s exact match proto root scope table type
-                            case $_s in
-                            (exact|match|root) seen+=/PREFIX ;;
-                            (proto) seen+=/RTPROTO ;;
-                            (scope) seen+=/SCOPE ;;
-                            (table) seen+=/TABLE+ ;;
-                            (type)  seen+=/RTYPE ;;
-                            esac
-                            ;;
-
-            (addr+A1)       _S=()
-                            __ip_match -V_s
-                            case $_s in
-                            (*) ;;
-                            esac
-                            ;;
-
-            (addr+*)        case ${__expecting#*+} in
-                            (flush|list|show)    _S=( anycast broadcast deprecated dev dynamic home label nodad peer permanent primary scope secondary tentative to ) ;;
-                            (add|change|replace) _S=( anycast broadcast deprecated dev dynamic home label nodad peer permanent preferred_lft primary scope secondary tentative to valid_lft ) ;;
+            (addr+*)        case ${expecting#*+} in
+                            (flush|list|show)    _S=( anycast broadcast deprecated dev dynamic home label nodad peer permanent               primary scope secondary temporary tentative to           ) ;;
+                            (add|change|replace) _S=( anycast broadcast deprecated dev dynamic home label nodad peer permanent preferred_lft primary scope secondary temporary tentative to valid_lft ) ;;
                             (del)                _S=( dev ) ;;
                             esac
-                            __ip_match -V_s "${_S[@]}" || return $?
+                            __ip_match -V_s -S__seen_ "${_S[@]}" ||
+                            __ip_match_failed
                             case $_s in
                             (anycast|broadcast)         seen+=/ADDR     ;;
                             (dev)                       seen+=/DEVICE   ;;
                             (label)                     seen+=/LABEL    ;;
-                            (preferred_lft|valid_lft)   seen+=/LFT      ;;
+                            (preferred_lft|valid_lft)   seen+=/LIFETIME ;;
                             (peer|to)                   seen+=/PREFIX   ;;
                             (scope)                     seen+=/SCOPE    ;;
+                            (deprecated|dynamic|home|nodad|permanent|primary|secondary|temporary|tentative) ;;
                             esac
                             ;;
 
-            (link)          _S=( add delete set show list )  # list is an alias for show
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+#           (addr+L)        __ip_match -V_s exact match proto root scope table type || __ip_match_fail
+#                           case $_s in
+#                           esac
+#                           ;;
+
+#           (addr+A1)       _S=()
+#                           __ip_match -V_s dev valid_lft preferred_lft home nodad || __ip_match_fail
+#                           case $_s in
+#                           (*) ;;
+#                           esac
+#                           $seen_prefix || seen+=/?PREFIX
+#                           ;;
+
+            (addrlabel)     __ip_match -V_s add del flush list show ||
+                            __ip_match_failed
+                            seen+=+$_s
+                            ;;
+
+            (addrlabel+*)   __ip_match -S prefix dev label ||
+                            __ip_match_failed
+                            case $_s in
+                            (prefix) seen+=/PREFIX ;;
+                            (dev)    seen+=/DEVICE ;;
+                            (label)  seen+=/LABEL ;;
+                            esac
+                            ;;
+
+            (link)          __ip_match -V_s add delete list set show || __ip_match_fail
                             seen+=+$_s
                             case $_s in
-                            (add)                  seen+=/=link/ ;;
+                            (add)                  seen+=/=link ;;
                             (delete|set|show|list) seen+=/DEVICE ;;
                             esac
                             ;;
 
-            (link+add)      _S=( link name txqueuelen address broadcast mtu )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+add)      __ip_match -V_s link name txqueuelen address broadcast mtu || __ip_match_fail
                             case $_s in
                             (link)              seen+=/DEVICE ;;
                             (address|broadcast) seen+=/LLADDR ;;
@@ -417,18 +476,14 @@ _ip()
                             esac
                             ;;
 
-            (link+delete)   _S=( address broadcast link mtu name txqueuelen )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+delete)   __ip_match -V_s address broadcast link mtu name txqueuelen || __ip_match_fail
                             case $_s in
                             (link)              seen+=/DEVICE ;;
                             (type)              seen=link+TYPE ;;
                             esac
                             ;;
 
-            (link+set/*)    _S=( address alias allmulticast arp broadcast down dynamic mtu multicast name netns promisc trailers txqueuelen up vf )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+set)      __ip_match -V_s address alias allmulticast arp broadcast down dynamic mtu multicast name netns promisc trailers txqueuelen up vf || __ip_match_fail
                             case $_s in
                             (address|broadcast)   seen+=/LLADDR    ;;
                             (alias)               seen+=/NAME      ;;
@@ -442,10 +497,8 @@ _ip()
                             esac
                             ;;
 
-            (link+set+VFOPT/*)
-                            _S=( mac qos rate vlan )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+set+VFOPT)
+                            __ip_match -V_s mac qos rate vlan || __ip_match_fail
                             case $_s in
                             (mac)  seen+=/LLADDR ;;
                             (qos)  seen+=/NUMBER8 ;;
@@ -454,10 +507,7 @@ _ip()
                             esac
                             ;;
 
-            (link+set+VLAN/*)
-                            _S=( id gvrp loose_binding reorder_hdr ingress-qos-map egress-qos-map )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+set+VLAN) __ip_match -V_s id gvrp loose_binding reorder_hdr ingress-qos-map egress-qos-map || __ip_match_fail
                             case $_s in
                             (id) seen+=/NUM:1:4095 ;;
                             (gvrp|loose_binding|reorder_hdr) seen+=/ONOFF ;;
@@ -465,25 +515,18 @@ _ip()
                             esac
                             ;;
 
-            (link+show/*|link+list/*)
-                            _S=( ... )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+show|link+list)
+                            __ip_match -V_s ...??? || __ip_match_fail
                             case $_s in
                             esac
                             ;;
 
-            (link+TYPE/*)   _S=( can dummy ifb macvlan vcan veth vlan )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+TYPE)     __ip_match -V_s can dummy ifb macvlan vcan veth vlan || __ip_match_fail
                             seen+=+$_s
                             case $_s in
                             esac
                             ;;
-            (link+TYPE+can/*)
-                            _S=( berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 prop-seg restart restart-ms sample-point sjw tq triple-sampling )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (link+TYPE+can) __ip_match -V_s berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 prop-seg restart restart-ms sample-point sjw tq triple-sampling || __ip_match_fail
                             case $_s in
                             (restart)       ;;
                             (bitrate)       seen+=/NUM:1:1000000 ;;
@@ -495,125 +538,116 @@ _ip()
                             (berr-reporting|listen-only|loopback|one-shot|triple-sampling) seen+=/ONOFF ;;
                             esac
                             ;;
-            (link+TYPE+dummy/*)
+            (link+TYPE+dummy)
                             ;;
-            (link+TYPE+ifb/*)
+            (link+TYPE+ifb)
                             ;;
-            (link+TYPE+macvlan/*)
+            (link+TYPE+macvlan)
                             ;;
-            (link+TYPE+vcan/*)
+            (link+TYPE+vcan)
                             ;;
-            (link+TYPE+veth/*)
+            (link+TYPE+veth)
                             ;;
-            (link+TYPE+vlan/*)
+            (link+TYPE+vlan)
                             ;;
 
-            (maddr/*)       _S=( add del list show )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (maddr)         __ip_match -V_s add del list show || __ip_match_fail
                             seen+=+$_s
                             ;;
 
-            (maddr+a*)      seen+=_add/=dev/MADDR ;;
-            (maddr+d*)      seen+=_del/=dev/MADDR ;;
-            (maddr+s*)      seen+=_show/=dev ;;
+            (maddr+add)     seen+=_add/=dev/MADDR ;;
+            (maddr+del)     seen+=_del/=dev/MADDR ;;
+            (maddr+show|maddr+list)
+                            seen+=_show/=dev ;;
 
-            (monitor/*)     _S=( all addr link maddr mroute neigh ntable route rule tunnel xfrm ) ;;
+            (monitor)       __ip_match -V_s all addr link maddr mroute neigh ntable route rule tunnel tuntap xfrm || __ip_match_fail
+                            ;;
 
-            (mroute/*)      _S=( list show )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (mroute)        __ip_match -V_s list show || __ip_match_fail
                             seen+=+$_s
                             case $_s in
-                            (show|list) seen+=+show/PREFIX ;;
+                            (show|list) seen+=+show/PREFIX0 ;;
                             esac
                             ;;
-            (mroute+show/*) _S=( from iif )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (mroute+show)   __ip_match -V_s from iif || __ip_match_fail
                             case $_s in
-                            (from)  seen+=/PREFIX ;;
+                            (from)  seen+=/PREFIX0 ;;
                             (iif)   seen+=/DEVICE ;;
                             esac
                             ;;
 
-            (neigh/*)       _S=( add change del flush list replace )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (neigh)         __ip_match -V_s add change del flush list replace || __ip_match_fail
                             case $_s in
                             (add|change|del|replace) seen+=+A/ADDR ;;
                             (flush|list|show) seen+=+S ;;
                             esac
                             ;;
 
-            (neigh+A/*)     _S=( dev lladdr nud )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (neigh+A)       __ip_match -V_s dev lladdr nud || __ip_match_fail
                             case $_s in
                             (lladdr) show+=/LLADDR ;;
                             (nud) show+=+$_s ;;
                             esac
                             ;;
 
-            (neigh+S/*)     _S=( dev nud to )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (neigh+S)       __ip_match -V_s dev nud to || __ip_match_fail
                             case $_s in
-                            (lladdr) show+=/LLADDR ;;
-                            (nud) show+=+$_s ;;
+                            (dev) show+=/DEVICE ;;
+                            (nud) show+=/NUD ;;
+                            (to)  show+=/PREFIX0
                             esac
                             ;;
 
-            (ntable/*)      _S=( change )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (NUD)           __ip_match permanent noarp stale reachable || __ip_match_fail ;;
+
+            (ntable)        __ip_match -V_s change || __ip_match_fail
                             seen+=+$_s
                             ;;
 
-            (route/*)       _S=( add append change del flush get list show replace monitor )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (route)         __ip_match -V_s add append change del flush get list show replace monitor || __ip_match_fail
                             case $_s in
-                            (add|append|change|del|monitor|replace) seen+=+A/PREFIX/route+RTYPE ;;
+                            (add|append|change|del|monitor|replace) seen+=+A/=dev/PREFIX0/route+R ;;
                             (get)                                   seen+=+get/ADDR   ;;
                             (flush|list|show)                       seen+=+L ;;
                             esac
                             ;;
-            (route+RTYPE)   _S=( unicast local broadcast multicast throw unreachable prohibit blackhole nat )
-                            {
-                                $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) ||
-                                ! __ip_match _s "${_S[@]}"
-                            } && __ip_redo
+            (route+R)       __ip_match -V_s blackhole broadcast local multicast nat prohibit throw unicast unreachable ||
+                            __ip_match_empty
+                            seen+=/route+R+$_s
                             ;;
 
-            (route+A/*)     # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
-                            $last_arg && COMPREPLY+=( via dev weight unicast local broadcast multicast throw unreachable prohibit blackhole nat default ) && break
+            (route+A)       __ip_match -V_s blackhole broadcast default dev local multicast nat prohibit throw unicast unreachable via weight ||
+                            __ip_match_failed
                             case $_s in
-            (route+A/b[lr]*\
-            |route+A/[lmnpt]*\
-            |route+A/un[ir]*) seen=route_P/PREFIX   ;;  # still seen route-add-type, now expecting PREFIX+[T/T/P/S/M], then [INFO_SPEC]
-            (route+A/*)     seen=route_P    ;; # seen route-add-[type]-prefix
+                            (default)       seen+= ;;
+                            (via)           seen+=/ADDR ;;
+                            (weight)        seen+=/NUMBER ;;
+                            (dev)           seen+=/DEVICE ;;
+                            (blackhole)     seen+=/PREFIX0 ;;
+                            (broadcast)     seen+=/PREFIX0 ;;
+                            (local)         seen+=/PREFIX0 ;;
+                            (multicast)     seen+=/PREFIX0 ;;
+                            (nat)           seen+=/PREFIX0 ;;
+                            (prohibit)      seen+=/PREFIX0 ;;
+                            (throw)         seen+=/PREFIX0 ;;
+                            (unicast)       seen+=/PREFIX0 ;;
+                            (unreachable)   seen+=/PREFIX0 ;;
                             esac
                             ;;
 
-            (route+L/*)     _S=( exact match proto root scope ta~table ty~type )
-                            # RTSELECTOR
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (route+L)       __ip_match -V_s exact match proto root scope table type || __ip_match_failed
                             case $_s in
-                            (exact) seen+=/PREFIX   ;;
-                            (match) seen+=/PREFIX   ;;
+                            (exact) seen+=/PREFIX0   ;;
+                            (match) seen+=/PREFIX0   ;;
                             (proto) seen+=/RTPROTO  ;;
-                            (root)  seen+=/PREFIX   ;;
+                            (root)  seen+=/PREFIX0   ;;
                             (scope) seen+=/SCOPE    ;;
                             (table) seen+=/TABLE+   ;;
                             (type)  seen+=/RTYPE    ;;
                             esac
                             ;;
 
-            (route+get/*)   _S=( from oif tos )
-                            $last_arg && COMPREPLY+=( "${_S[@]#*~}" ) && break
-                            __ip_match _s "${_S[@]}" || return $?
+            (route+get)     __ip_match -V_s from oif tos || __ip_match_failed
                             case $_s in
                             (from)      seen+=/=iif/ADDR ;;
                             (iif|oif)   seen+=/IFACE     ;;
@@ -621,37 +655,35 @@ _ip()
                             esac
                             ;;
 
-            (route_P/*)     # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
-                            $last_arg && COMPREPLY+=( advmss cwnd dev equalize initcwnd metric mtu nexthop proto realms rto_min rtt rttvar scope src ssthresh table tos via weight window ) && break ;&
-            (route_P/a*)    seen+=/NUMBER16   ;; # advmss
-            (route_P/c*)    seen+=/NUMBER32   ;; # cwnd
-            (route_P/d*)    seen+=/IFACE    ;; # dev
-            (route_P/e*)                    ;; # equalize
-            (route_P/i*)    seen+=/NUMBER32   ;; # initcwnd
-            (route_P/me*)   seen+=/NUMBER31S   ;; # metric
-            (route_P/mt*)   seen+=/NUMBER32   ;; # mtu
-            (route_P/n*)                    ;; # nexthop
-            (route_P/o*)                    ;; # onlink
-            (route_P/pr*)   seen+=/RTPROTO   ;; # proto
-            (route_P/pe*)                   ;; # pervasive
-            (route_P/re*)   seen+=/REALM    ;; # realms
-            (route_P/rto*)  seen+=/TIME     ;; # rto_min
-            (route_P/rtt*)  seen+=/TIME     ;; # rtt or rttvar
-            (route_P/sc*)   seen+=/SCOPE    ;; # scope
-            (route_P/sr*)   seen+=/ADDR     ;; # src
-            (route_P/ss*)   seen+=/NUMBER   ;; # ssthresh
-            (route_P/ta*)   seen+=/TABLE    ;; # table
-            (route_P/to*)   seen+=/TOS      ;; # tos
-            (route_P/v*)    seen+=/ADDR     ;; # via
-            (route_P/we*)   seen+=/NUMBER16   ;; # weight
-            (route_P/wi*)   seen+=/NUMBER8   ;; # window
+            (route+P)     # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
+                            __ip_match -V_s advmss cwnd dev equalize initcwnd metric mtu nexthop proto realms rto_min rtt rttvar scope src ssthresh table tos via weight window ||
+                            __ip_match_fail
 
-            (rule/*)        $last_arg && COMPREPLY+=( add del flush list show ) && break ;&
+                            case $_s in
+                            (advmss|weight)     seen+=/NUMBER16 ;;
+                            (cwnd|initcwnd|mtu) seen+=/NUMBER32 ;;
+                            (dev)               seen+=/IFACE    ;;
+                            (equalize|onlink|pervasive)         ;;
+                            (metric)            seen+=/NUMBER31S ;;
+                            (nexthop)                           ;;  # TODO - reset the "seen" states
+                            (proto)             seen+=/RTPROTO  ;;
+                            (realms)            seen+=/REALM    ;;
+                            (rto_min|rtt|rttvar) seen+=/TIME    ;;
+                            (scope)             seen+=/SCOPE    ;;
+                            (src|via)           seen+=/ADDR     ;;
+                            (ssthresh)          seen+=/NUMBER   ;;
+                            (table)             seen+=/TABLE    ;;
+                            (tos)               seen+=/TOS      ;;
+                            (window)            seen+=/NUMBER8  ;;
+                            esac
+                            ;;
+
+            (rule)          $last_arg && COMPREPLY+=( add del flush list show ) && break ;&
             (rule/[ad]*)    seen+=_A     ;; # add/del
             (rule/[lfs]*)   seen+=_L     ;; # flush/list/show
             (rule_A/*)      $last_arg && COMPREPLY+=( dev from fwmark goto iif lookup not pref prio prohibit realms reject table to tos unreachable ) && break ;;
             (rule_A/d*)     seen+=/DEVICE   ;; # dev
-            (rule_A/fr*)    seen+=/PREFIX   ;; # from
+            (rule_A/fr*)    seen+=/PREFIX0   ;; # from
             (rule_A/fw*)    seen+=/NUMBER32   ;; # fwmark
             (rule_A/g*)     seen+=/NUMBER   ;; # goto
             (rule_A/i*)     seen+=/DEVICE   ;; # iif
@@ -663,68 +695,71 @@ _ip()
             (rule_A/rea*)   seen+=/REALM    ;; # realm
             (rule_A/rej*)                   ;; # reject
             (rule_A/ta*)    seen+=/TABLE    ;; # table
-            (rule_A/to)     seen+=/PREFIX   ;; # to
+            (rule_A/to)     seen+=/PREFIX0   ;; # to
             (rule_A/tos)    seen+=/TOS      ;; # tos
             (rule_A/u*)                     ;; # unreachable
             (rule_L/*)      $last_arg && break ;&
 
-            (tunnel)        $last_arg && COMPREPLY+=( add change del list show ) && break
-                            seen=tunnel_${cur:0:1} ;;
+            (tunnel)        __ip_match -V_s add change del list show || __ip_match_fail
+                            seen+=+$_s ;;
 
-            (xfrm/*)        $last_arg && COMPREPLY+=( policy state monitor ) && break ;;
+            (tuntap)        __ip_match_TODO ;;
 
-            (DEVICE/*)      $last_arg && COMPREPLY+=( '$(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" )' )
-                            save_device=$cur ;;
-            (LFT/*)         $last_arg && COMPREPLY+=( forever ) or_digits=true max_num=255 ;;
-            (NUM:*:*/*)     $last_arg && or_digits=true _s=${seen##*/NUM:} min_num=${_s%:*} max_num=${_s#*:} ;;
-            (NUM:*/*)       $last_arg && or_digits=true min_num=0 max_num=${seen##*/NUM:} ;;
-            (NUMBER/*)      $last_arg && or_digits=true ;;
-            (NUMBER8/*)     $last_arg && or_digits=true max_num=0xff ;;
-            (NUMBER16/*)    $last_arg && or_digits=true max_num=0xffff ;;
-            (NUMBER32/*)    $last_arg && or_digits=true max_num=0xffffffff ;;
-            (NUMBER31S/*)   $last_arg && or_digits=true min_num=-0x80000000 max_num=0x7fffffff ;;
-            (ONOFF/*)       $last_arg && COMPREPLY+=( on off ) ;;
-            (QOSMAP/*)      $last_arg && __ip_warning "QOSMAP not implemented" ;;
-            (REALM/*)       $last_arg && COMPREPLY+=( '$(__ip_slurp /etc/iproute2/rt_realms)' ) or_digits=true max_num=0xff ;;
-            (SCOPE/*)       $last_arg && COMPREPLY+=( '$( __ip_slurp /etc/iproute2/rt_scopes )' ) ;;
-            (ADDR/*)        $last_arg && { __ip_complete_address $save_ipv $cur || return $? ; } ;;
-            (MADDR/*)       $last_arg && { __ip_complete_address $save_ipv -m $cur || return $? ; } ;;
-            (LLADDR/*)      $last_arg && { __ip_complete_address -0 $cur || return $? ; } ;;
-            (PREFIX/*)      $last_arg && { __ip_complete_address $save_ipv -P $cur || return $? ; } ;;
-            (LABEL/*)       $last_arg && COMPREPLY+=( $save_device: ) ;;
-            (TABLE/*)       $last_arg && COMPREPLY+=( default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 ;;
-            (TABLE+/*)      $last_arg && COMPREPLY+=( all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ) or_digits=true max_num=255 min_num=-2 ;;
-            (RTYPE)         __ip_match $__empty blackhole broadcast local multicast nat prohibit throw unicast unreachable ;;
-            (RTPROTO/*)     $last_arg && COMPREPLY+=( boot kernel static ) or_digits=true max_num=255 ;;
-            (TOS/*)         $last_arg && COMPREPLY+=( inherit ) or_digits=true max_num=255 ;;
+            (xfrm)          __ip_match -V_s policy state monitor || __ip_match_fail
+                            seen+=+$_s ;;
+
+            (ADDR)          __ip_match_addr $save_ipv $cur || __ip_match_fail ;;
+            (MADDR)         __ip_match_addr $save_ipv -m $cur || __ip_match_fail ;;
+            (LLADDR)        __ip_match_addr -0 $cur || __ip_match_fail ;;
+            (PREFIX0)       __ip_match_addr $save_ipv -P -d $cur || __ip_match_fail ; seen_prefix=true ;;
+            (PREFIX)        __ip_match_addr $save_ipv -P    $cur || __ip_match_fail ; seen_prefix=true ;;
+
+            (DEVICE)        __ip_match -Vsave_device $(ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" ) ||
+                            __ip_match_failed ;;
+            (LIFETIME)      __ip_match forever ||
+                            __ip_match_number --8bit ||
+                            __ip_match_fail ;;
+            (NUM:*:*)       _s=${expecting#NUM:} min_num=${_s%:*} max_num=${_s#*:}
+                            __ip_match_number --min=$min_num --max=$max_num || __ip_match_fail ;;
+            (NUM:*)         __ip_match_number --max=${expecting##*:} || __ip_match_fail ;;
+            (NUMBER)        __ip_match_number || __ip_match_fail ;;
+            (NUMBER8)       __ip_match_number --8bit || __ip_match_fail ;;
+            (NUMBER16)      __ip_match_number --16bit || __ip_match_fail ;;
+            (NUMBER32)      __ip_match_number --32bit || __ip_match_fail ;;
+            (NUMBER31S)     __ip_match_number --s32bit || __ip_match_fail ;;
+            (ONOFF)         __ip_match on off || __ip_match_fail ;;
+            (QOSMAP)        __ip_warning "QOSMAP not implemented" ;;
+            (REALM)         __ip_match $(__ip_slurp /etc/iproute2/rt_realms) ||
+                            __ip_match_number --8bit ||
+                            __ip_match_fail ;;
+            (SCOPE)         __ip_match_number --8bit ||
+                            __ip_match $( __ip_slurp /etc/iproute2/rt_scopes ) ||
+                            __ip_match_fail ;;
+            (LABEL)         __ip_match $save_device: || true ;;
+            (TABLE)         __ip_match default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ||
+                            __ip_match_number --8bit ||
+                            __ip_match_fail ;;
+            (TABLE+)        __ip_match all default local main '$( __ip_slurp /etc/iproute2/rt_tables )' ||
+                            __ip_match_number --max=255 --min=-2 ||
+                            __ip_match_fail ;;
+            (RTYPE)         __ip_match blackhole broadcast local multicast nat prohibit throw unicast unreachable ||
+                            __ip_match_fail ;;
+            (RTPROTO)       __ip_match boot kernel static ||
+                            __ip_match_number --8bit ||
+                            __ip_match_fail;;
+            (TOS)           __ip_match inherit ||
+                            __ip_match_number --8bit ||
+                            __ip_match_fail ;;
 
             #([A-Z]*/*)      ;;
 
-            (*)             __ip_error "Lost sync? seen=$seen expect=$__expecting cur=$cur" ; return 1 ;;
+            (*)             __ip_error "Lost sync? seen=$seen expect=$expecting cur=$cur" ;;
 
             esac  # }}}
 
         done  # }}}
 
-        __ip_debug "COMPREPLY=[${COMPREPLY[*]}] or_digits=$or_digits cur=$cur"
-
-        if { $or_digits || $or_xdigits ; } && (( num_min < 0 )) && [[ $cur = '-' ]]
-        then :
-        elif $or_digits && [[ ${cur#-} != *[^0-9]* ||
-                            ${cur#-} = 0x* && ${cur#-} != 0x*[^0-9a-f]* ]]
-        then
-            local -i c=cur a=min_num b=max_num
-            # assume that min_num is non-positive and max_num is non-negative
-            (( c < 0 )) && c=-c a=-max_num b=-min_num
-            [[ $cur != '-' ]] && COMPREPLY+=( ${cur} )
-            if (( (!${#max_num} || cur*10 <= max_num) &&
-                  (!${#min_num} || cur*10 >= min_num) ))
-            then
-            COMPREPLY+=( ${cur}0 ${cur}1 ${cur}2 ${cur}3 ${cur}4 ${cur}5 ${cur}6 ${cur}7 ${cur}8 ${cur}9 )
-            fi
-        elif $or_xdigits && [[ ${cur#0x} != *[^0-9a-f]* ]]
-        then :
-        fi
+        __ip_debug "COMPREPLY=[${COMPREPLY[*]}] (before compgen)"
 
         COMPREPLY=( $( compgen -W "${COMPREPLY[*]}" -- $cur ) )
 
@@ -750,331 +785,9 @@ _ip()
 
         return 0
     done  # }}} end dummy loop
-    __ip_error "Lost sync? seen=$seen expect=$__expecting cur=$__cur"
     COMPREPLY=()
+    __ip_warning "Lost sync? seen=$seen expect=$expecting cur=$__cur"
     return 1
 }
-
 #COMP_VERBOSE=false
 complete -F _ip -o nospace ip
-
-return
-
-: <<'EndOfDocs'
-Output from "ip help", then "ip addr help" etc, tidied up
-
-################################################################################
-
-Usage: ip [ OPTIONS ... ] OBJECT { COMMAND | help }
-       ip [ -force ] [-batch filename]
-
-OBJECT := { addr
-          | link
-          | maddr
-          | monitor
-          | mroute
-          | neigh
-          | ntable
-          | route
-          | rule
-          | tunnel
-          | xfrm }
-OPTIONS := { -d[etails]
-           | -f[amily] { inet
-                       | inet6
-                       | ipx
-                       | dnet
-                       | link }
-           | -o[neline]
-           | -r[esolve]
-           | -s[tatistics]
-           | -t[imestamp]
-           | -V[ersion] }
-
-################################################################################
-
-Usage: ip addr { add
-               | change
-               | replace } IFADDR [ { dev STRING
-                                    | LIFETIME
-                                    | CONFFLAG } ... ]
-       ip addr del IFADDR dev STRING
-       ip addr { show
-               | flush } [ { dev STRING
-                           | label PATTERN
-                           | scope SCOPE-ID
-                           | to PREFIX
-                           | permanent
-                           | dynamic
-                           | secondary
-                           | primary
-                           | tentative
-                           | deprecated
-                           | CONFFLAG } ... ]
-
-IFADDR := { PREFIX
-          | ADDR peer PREFIX
-                 [ { broadcast ADDR
-                   | anycast ADDR
-                   | label STRING
-                   | scope SCOPE-ID } ... ] }
-SCOPE-ID := { host
-            | link
-            | global
-            | NUMBER }
-CONFFLAG := { home
-            | nodad }
-LIFETIME := { valid_lft LFT
-            | preferred_lft LFT }
-LFT := { forever
-       | SECONDS }
-
-################################################################################
-
-Usage: ip link add link DEVICE [ { [ name ] NAME
-                                 | txqueuelen PACKETS
-                                 | address LLADDR
-                                 | broadcast LLADDR
-                                 | mtu MTU
-                                 | type LTYPE+ARGS } ... ]
-       ip link delete DEVICE type LTYPE+ARGS
-       ip link set DEVICE [ { address LLADDR
-                            | alias NAME
-                            | allmulticast { on | off }
-                            | arp { on | off }
-                            | broadcast LLADDR
-                            | down
-                            | dynamic { on | off }
-                            | mtu MTU
-                            | multicast { on | off }
-                            | name NEWNAME
-                            | netns PID
-                            | promisc { on | off }
-                            | trailers { on | off }
-                            | txqueuelen PACKETS
-                            | up
-                            | vf NUM [ VFOPT ... ] } ... ]
-       ip link show [ DEVICE ]
-
-VFOPT := { mac LLADDR
-         | vlan VLANID [ qos VLAN-QOS ]
-         | rate TXRATE }
-
-LTYPE+ARGS := { can [ CANLINKARG ... ]
-              | dummy
-              | ifb
-              | macvlan [ mode MVLMODE ]
-              | vcan
-              | veth [ peer VEOPTS ... ]
-              | vlan id VLANID [ VLFLAG ... ] [ ingress-qos-map QOS-MAPPING ... ] [ egress-qos-map QOS-MAPPING ... ] }
-
-
-CANLINKARG := { berr-reporting { on | off }
-              | bitrate BITRATE
-              | listen-only { on | off }
-              | loopback { on | off }
-              | one-shot { on | off }
-              | phase-seg1 SEG
-              | phase-seg2 SEG
-              | prop-seg SEG
-              | restart
-              | restart-ms NUMBER
-              | sample-point SAMPLE-POINT
-              | sjw SJW
-              | tq NUMBER
-              | triple-sampling { on | off } }
-
-BITRATE := { 1..1000000 }
-MVLMODE := { private | vepa | bridge }
-QOS-MAPPING := FROM:TO
-SAMPLE-POINT := { 0.000..0.999 }
-SEG := { 1..8 }
-SJW := { 1..4 }
-VEOPTS := ?WORD?
-VLANID := 0-4095
-VLFLAG := { gvrp { on | off }
-          | loose_binding { on | off }
-          | reorder_hdr { on | off } }
-
-################################################################################
-
-Usage: ip maddr [ add
-                | del ] MULTIADDR dev STRING
-       ip maddr show [ dev STRING ]
-
-################################################################################
-
-Usage: ip monitor [ all
-                  | LISTofOBJECTS ]
-
-################################################################################
-
-Usage: ip mroute show [ PREFIX ]
-                      [ from PREFIX ]
-                      [ iif DEVICE ]
-
-################################################################################
-
-Usage: ip neigh { add
-                | del
-                | change
-                | replace } { ADDR [ lladdr LLADDR ]
-                                   [ nud { permanent
-                                         | noarp
-                                         | stale
-                                         | reachable } ]
-                            | proxy ADDR }
-                            [ dev DEV ]
-       ip neigh { show
-                | flush } [ to PREFIX ]
-                          [ dev DEV ]
-                          [ nud STATE ]
-
-################################################################################
-
-Usage: ip ntable change name NAME [ dev DEV ]
-                                  [ anycast_delay MSEC ]
-                                  [ app_probs VAL ]
-                                  [ base_reachable MSEC ]
-                                  [ delay_probe MSEC ]
-                                  [ gc_int MSEC ]
-                                  [ gc_stale MSEC ]
-                                  [ locktime MSEC ]
-                                  [ mcast_probes VAL ]
-                                  [ proxy_delay MSEC ]
-                                  [ proxy_queue LEN ]
-                                  [ queue LEN ]
-                                  [ retrans MSEC ]
-                                  [ thresh1 VAL ]
-                                  [ thresh2 VAL ]
-                                  [ thresh3 VAL ]
-                                  [ ucast_probes VAL ]
-       ip ntable show [ dev DEV ]
-                      [ name NAME ]
-
-################################################################################
-
-Usage: ip route { list
-                | flush } [ RTSELECTOR ... ]
-       ip route get ADDRESS [ RTOPT ... ]
-       ip route { add
-                | del
-                | change
-                | append
-                | replace
-                | monitor } ROUTE
-
-RTSELECTOR := { exact PREFIX
-              | match PREFIX
-              | proto RTPROTO
-              | root PREFIX
-              | scope SCOPE
-              | table TABLE_ID+
-              | type RTYPE }
-RTOPT := { from ADDRESS
-         | iif STRING
-         | oif STRING
-         | tos TOS }
-
-ROUTE := [ RTYPE ] PREFIX [ NSOPT ... ] [ FIRSTHOP ... ] [ NEXTHOP ... ]
-
-RTYPE := { blackhole
-         | broadcast
-         | local
-         | multicast
-         | nat
-         | prohibit
-         | throw
-         | unicast
-         | unreachable }
-
-NSOPT := { metric METRIC
-         | proto RTPROTO
-         | scope SCOPE
-         | table TABLE_ID+
-         | tos TOS }
-
-NEXTHOP :=  { nexthop NH ... }
-
-FIRSTHOP := { NH
-         | advmss NUMBER
-         | cwnd NUMBER
-         | equalize
-         | hoplimit NUMBER
-         | initcwnd NUMBER
-         | initrwnd NUMBER
-         | mtu NUMBER
-         | realms REALM
-         | reordering NUMBER
-         | rto_min TIME
-         | rtt TIME
-         | rttvar TIME
-         | src ADDRESS
-         | ssthresh NUMBER
-         | window NUMBER }
-
-NH := { dev STRING 
-      | onlink
-      | pervasive
-      | via ADDRESS 
-      | weight NUMBER }
-
-TABLE_ID+ := { all
-             | local
-             | main
-             | default
-             | NUMBER }
-
-SCOPE := { global
-         | host
-         | link
-         | NUMBER }
-
-RTPROTO := { boot
-           | kernel
-           | static
-           | NUMBER }
-
-TIME := NUMBER{s|ms|us|ns|j}
-
-# defined but not used in 'ip route help'
-#MP_ALGO := { drr
-#           | random
-#           | rr
-#           | wrandom }
-
-################################################################################
-
-Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION
-SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]
-            [ dev STRING ] [ pref NUMBER ] [ prio NUMBER ]
-ACTION := [ table TABLE_ID ]
-          [ prohibit | reject | unreachable ]
-          [ realms [SRCREALM/]DSTREALM ]
-          [ goto NUMBER ]
-TABLE_ID := { default
-            | local
-            | main
-            | NUMBER }
-
-################################################################################
-
-Usage: ip tunnel { add | change | del | show } [ NAME ]
-          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]
-          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]
-          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]
-
-Where: NAME := STRING
-       ADDR := { IP_ADDRESS | any }
-       TOS  := { NUMBER | inherit }
-       TTL  := { 1..255 | inherit }
-       KEY  := { DOTTED_QUAD | NUMBER }
-
-################################################################################
-
-Usage: ip xfrm XFRM_OBJECT { COMMAND | help }
-where  XFRM_OBJECT := { state | policy | monitor }
-
-################################################################################
-
-EndOfDocs
