@@ -384,7 +384,7 @@ _ip() {
                     trap RETURN ;
                     echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
                     echo -n >&3 \"Completion END: COMPREPLY=('\${COMPREPLY[*]}')\"\$'\\e[49;39;0m' ;
-                    echo -n >&3 \$'\\e8 ;
+                    echo -n >&3 \$'\\e8' ;
                     exec 3>&- ;
                 " RETURN
             echo -n >&3 $'\e[A\e[999I'"${COMP_VERBOSE_TINT}"$'\e[1J\e[5H'
