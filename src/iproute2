@@ -25,13 +25,6 @@ __ip_slurp() {
             ' $1
 }
 
-__ip_debug() { : ; }
-__ip_debug_parsing_state() { : ; }
-__ip_debug_unexpected() { : ; }
-__ip_error() { break 2 ; }
-__ip_unexpected() { : ; }
-__ip_warning() { : ; }
-
 __ip_map() {
     local ___f="$1" ___i ___r=
     shift
@@ -119,7 +112,7 @@ __ip_match_number() {
             (( __i = $__rp${__num:-0} ))
 
             [[ -n $__set_var ]] && {
-                __ip_debug "SETVAR computing '$__i' into $__set_var"
+                __ip_debug "SETVAR saving '$__i' into $__set_var"
                 eval "(( $__set_var = __i ))"
             }
 
@@ -148,7 +141,10 @@ __ip_match_number() {
         return 1
     else
         __ip_debug "PARSENUM $*"
-        [[ -n $__set_var ]] && eval "(( $__set_var = __cur ))"
+        [[ -n $__set_var ]] && {
+            __ip_debug "SETVAR saving '$__cur' into $__set_var"
+            eval "(( $__set_var = __cur ))"
+        }
         [[ $__cur = ?*   && $__cur != *[^0-9]*      ]] && return 0
         [[ $__cur = 0x?* && $__cur != 0x*[^0-9a-f]* ]] && return 0
         [[ $__radix = 16 && $__cur != *[^0-9a-f]*   ]] && return 0
@@ -324,10 +320,23 @@ __ip_match_empty()  {
     continue
 }
 
+#
+__ip_cluck() {
+    if [[ $( type -t cluck ) = '' ]]
+    then
+        if [[ $( type -t require ) == function ]]
+        then
+            require cluck
+        else
+            return
+        fi
+    fi
+    (cluck "$@" >&3 2>&3 )
+}
+
 __ip_match_failed() {
-    require cluck
-    __ip_debug_parsing_state FAIL $expecting
-    cluck -x FAIL BACKTRACE >&3 2>&3
+    __ip_debug_parsing_state "MATCH-FAILED $expecting [$*]"
+    __ip_cluck -x -s -S0 "MATCH-FAILED $expecting [$*] BACKTRACE"
     if ((__empty))
     then
         ((--cword_index))
@@ -337,25 +346,6 @@ __ip_match_failed() {
         break
     fi
     break 2
-}
-
-__ip_matched_route_opt() {
-    local _V=$1
-                            case $_V in
-                            (default)       STATE+= ;;
-                            (via)           STATE+=/ADDR ;;
-                            (weight)        STATE+=/NUMBER ;;
-                            (dev|oif)       STATE+=/DEVICE ;;
-                            (blackhole)     STATE+=/PREFIX0 ;;
-                            (broadcast)     STATE+=/PREFIX0 ;;
-                            (local)         STATE+=/PREFIX0 ;;
-                            (multicast)     STATE+=/PREFIX0 ;;
-                            (nat)           STATE+=/PREFIX0 ;;
-                            (prohibit)      STATE+=/PREFIX0 ;;
-                            (throw)         STATE+=/PREFIX0 ;;
-                            (unicast)       STATE+=/PREFIX0 ;;
-                            (unreachable)   STATE+=/PREFIX0 ;;
-                            esac
 }
 
 _ip() {
@@ -378,7 +368,7 @@ _ip() {
 
     if $COMP_VERBOSE
     then
-        COMP_VERBOSE_TINT='48;5;210;30'
+        : {COMP_VERBOSE_TINT='\e[48;5;210;30m'}  # assumes 256-colour Xterm or similar
         if [[ -t 3 ]]
         then
             trap "
@@ -386,7 +376,7 @@ _ip() {
                     echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
                     echo >&3 \"Completion END: COMPREPLY=(\${COMPREPLY[*]})\"\$'\\e[49;39;0m\n' ;
                 " RETURN
-            echo -n >&3 $'\n\e['"${COMP_VERBOSE_TINT}"$'m'
+            echo -n >&3 $'\n'"${COMP_VERBOSE_TINT}"
         else
             exec 3>&2
             echo -n >&3 $'\e7'
@@ -397,12 +387,11 @@ _ip() {
                     echo -n >&3 \$'\\e8 ;
                     exec 3>&- ;
                 " RETURN
-            echo -n >&3 $'\e[A\e[999I\e['"${COMP_VERBOSE_TINT}"$'m\e[1J\e[5H'
+            echo -n >&3 $'\e[A\e[999I'"${COMP_VERBOSE_TINT}"$'\e[1J\e[5H'
         fi
         echo >&3 "Completion START: ARGS=($*) WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD KEY=$COMP_KEY LINE=($COMP_LINE) POINT=$COMP_POINT TYPE=$COMP_TYPE WORDBREAKS=[${COMP_WORDBREAKS/$'\n'/\\n}]"
 
         __ip__en() { ((cword_index>=COMP_CWORD-2)) ; }
-        __ip_trace() { echo >&3 "Completion $*" ; }
         __ip_debug() { __ip__en && echo >&3 "Completion $*" ; }
         __ip_debug_parsing_state() { __ip__en || return 0 ; local tag=$1 ; shift ; echo >&3 "Completion STATE $tag word[$cword_index]=$cur STATE=$STATE expecting=$expecting $*" ; }
         __ip_debug_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
@@ -415,6 +404,7 @@ _ip() {
         __ip_debug_parsing_state() { : ; }
         __ip_debug_unexpected() { : ; }
         __ip_error() { local t="  $*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; break 3 ; }
+        __ip_unexpected() { : ; }
         __ip_warning() { : ; }
     fi
 
@@ -670,10 +660,10 @@ _ip() {
             (neigh+*)       __ip_match -S -V dev lladdr nud to || __ip_match_failed
                             __ip_debug_parsing_state P4+$expecting
                             case $_V in
-                            (dev)    STATE+=/DEVICE ;;
-                            (lladdr) STATE+=/LLADDR ;;
-                            (nud)    STATE+=/NUDSTATE ;;
-                            (to)     STATE+=/PREFIX0
+                            (dev)            STATE+=/DEVICE ;;
+                            (lladdr)         STATE+=/LLADDR ;;
+                            (nud)            STATE+=/NUDSTATE ;;
+                            (to)             STATE+=/PREFIX0
                             esac
                             ;;
 
@@ -706,8 +696,8 @@ _ip() {
                             case $_V in
                             (default)       STATE+= ;;
                             (via)           STATE+=/ADDR ;;
+                            (dev|iif|oif)   STATE+=/DEVICE ;;
                             (weight)        STATE+=/NUMBER ;;
-                            (dev|oif)       STATE+=/DEVICE ;;
                             (blackhole)     STATE+=/PREFIX0 ;;
                             (broadcast)     STATE+=/PREFIX0 ;;
                             (local)         STATE+=/PREFIX0 ;;
@@ -718,28 +708,27 @@ _ip() {
                             (unicast)       STATE+=/PREFIX0 ;;
                             (unreachable)   STATE+=/PREFIX0 ;;
                             esac
-                            #__ip_matched_route_opt $_V
                             ;;
 
             (route+L)       __ip_match -V exact match proto root scope table type || __ip_match_failed
                             __ip_debug_parsing_state P4+$expecting
                             case $_V in
-                            (exact) STATE+=/PREFIX0   ;;
-                            (match) STATE+=/PREFIX0   ;;
-                            (proto) STATE+=/RTPROTO  ;;
-                            (root)  STATE+=/PREFIX0   ;;
-                            (scope) STATE+=/SCOPE    ;;
-                            (table) STATE+=/TABLE+   ;;
-                            (type)  STATE+=/RTYPE    ;;
+                            (exact)         STATE+=/PREFIX0   ;;
+                            (match)         STATE+=/PREFIX0   ;;
+                            (proto)         STATE+=/RTPROTO  ;;
+                            (root)          STATE+=/PREFIX0   ;;
+                            (scope)         STATE+=/SCOPE    ;;
+                            (table)         STATE+=/TABLE+   ;;
+                            (type)          STATE+=/RTYPE    ;;
                             esac
                             ;;
 
             (route+get)     __ip_match -V from oif tos || __ip_match_failed
                             __ip_debug_parsing_state P4+$expecting
                             case $_V in
-                            (from)      STATE+=/=iif/ADDR ;;
+                            (from)          STATE+=/=iif/ADDR ;;
                             (dev|iif|oif)   STATE+=/DEVICE    ;;
-                            (tos)       STATE+=/TOS       ;;
+                            (tos)           STATE+=/TOS       ;;
                             esac
                             ;;
 
@@ -884,7 +873,7 @@ _ip() {
                             __ip_match_failed ;;
             (RTPROTO)       __ip_match boot kernel static ||
                             __ip_match_number --8bit ||
-                            __ip_match_failed;;
+                            __ip_match_failed ;;
             (TOS)           __ip_match inherit ||
                             __ip_match_number --8bit ||
                             __ip_match_failed ;;
