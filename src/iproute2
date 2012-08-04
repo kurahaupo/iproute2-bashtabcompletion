@@ -349,6 +349,12 @@ __ip_match_failed() {
 }
 
 _ip() {
+    case $COMP_TYPE in
+    (63) ((++__ip_comp_count >= 3)) && COMP_TYPE=best ;;
+    (9)  ((__ip_comp_count=1)) ;;
+    (*)  ((__ip_comp_count=0)) ;;
+    esac
+
     # "seen" is stack of partial states, as a string separated by slashes, shallowest-to-deepest
     local STATE=
     local cur="(start-of-line)"
@@ -357,7 +363,6 @@ _ip() {
     local save_family='-Fdual'
     local want=
     local max_num= min_num=
-    local cur_is_decnumber=false cur_is_hexnumber=false
     local expecting=
     local __ip_seen_PREFIX=false
 
@@ -419,10 +424,6 @@ _ip() {
             [[ -n $want ]] && __ip_match "$want " && break
 
             want=
-
-            local cur_is_decnumber=false cur_is_hexnumber=false
-            [[ $cur != '' && $cur != *[^0-9]* ]] && cur_is_decnumber=true
-            [[ $cur = 0x* && $cur != 0x*[^0-9a-f]* ]] && cur_is_hexnumber=true
 
             __ip_debug_parsing_state P2
 
