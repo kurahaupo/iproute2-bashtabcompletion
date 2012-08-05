@@ -322,6 +322,7 @@ __ip_match_empty()  {
 
 #
 __ip_cluck() {
+    $COMP_VERBOSE || return
     if [[ $( type -t cluck ) = '' ]]
     then
         if [[ $( type -t require ) == function ]]
@@ -400,7 +401,7 @@ _ip() {
         __ip_debug() { __ip__en && echo >&3 "Completion $*" ; }
         __ip_debug_parsing_state() { __ip__en || return 0 ; local tag=$1 ; shift ; echo >&3 "Completion STATE $tag word[$cword_index]=$cur STATE=$STATE expecting=$expecting $*" ; }
         __ip_debug_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
-        __ip_error() { echo >&3 "Completion ERROR $*" ; break 3 ; local t="  $*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; break 3 ; }
+        __ip_error() { echo >&3 "Completion ERROR $*" ; break 3 ; }
         __ip_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
         __ip_warning() { echo >&3 "Completion WARNING $*" ; }
     else
