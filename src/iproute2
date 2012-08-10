@@ -669,9 +669,6 @@ _ip() {
                             esac
                             ;;
 
-            (NUDSTATE)      __ip_match noarp permanent reachable stale || __ip_match_failed
-                            ;;
-
             (ntable)        __ip_match -V change || __ip_match_failed
                             __ip_debug_parsing_state P4+$expecting
                             STATE+=+$_V
@@ -839,6 +836,9 @@ _ip() {
             (LIFETIME)      __ip_match forever ||
                             __ip_match_number --8bit ||
                             __ip_match_failed ;;
+
+            (NUDSTATE)      __ip_match noarp permanent reachable stale || __ip_match_failed ;;
+
             (NUM:*:*)       max_num=${expecting#NUM:} ; min_num=${max_num%:*} max_num=${max_num#*:}
                             __ip_match_number --min=$min_num --max=$max_num || __ip_match_failed ;;
             (NUM:*)         __ip_match_number --max=${expecting##*:}        || __ip_match_failed ;;
@@ -879,8 +879,6 @@ _ip() {
             (TOS)           __ip_match inherit ||
                             __ip_match_number --8bit ||
                             __ip_match_failed ;;
-
-            #([A-Z]*/*)      ;;
 
             (*)             __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur" ;;
 
@@ -924,5 +922,4 @@ _ip() {
     unset ${!__ip_seen_*}
     return 1
 }
-#COMP_VERBOSE=false
 complete -F _ip -o nospace ip
