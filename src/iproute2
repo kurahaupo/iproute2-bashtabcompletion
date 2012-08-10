@@ -11,6 +11,7 @@
 # Public Licence, or any later version as published by the Free Software
 # Foundation.
 #
+# Set COMP_VERBOSE=true to get debugging output
 
 [[ $(type -t have) != function ]] || have ip || return
 
@@ -322,7 +323,7 @@ __ip_match_empty()  {
 
 #
 __ip_cluck() {
-    $COMP_VERBOSE || return
+    ${COMP_VERBOSE:-false} || return
     if [[ $( type -t cluck ) = '' ]]
     then
         if [[ $( type -t require ) == function ]]
@@ -372,7 +373,7 @@ _ip() {
     # Too hard to localize everything, so clean up from last time
     unset ${!__ip_seen_*}
 
-    if $COMP_VERBOSE
+    if ${COMP_VERBOSE:-false}
     then
         : {COMP_VERBOSE_TINT='\e[48;5;210;30m'}  # assumes 256-colour Xterm or similar
         if [[ -t 3 ]]
