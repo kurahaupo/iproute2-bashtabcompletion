@@ -185,7 +185,7 @@ __ip_match() {
         then
             local _p _t
             for _p do
-                _t="$__seen_pref${_p##*=}" _t="${_t//[^_0-9a-z]/__}" _p="${_p%=*}"
+                _t="$__seen_pref${_p##*=}" _t="${_t//[^_0-9a-zA-Z]/__}" _p="${_p%=*}"
                 #[[ $_t != *[^_a-z0-9]* && $_t != [0-9]* ]] &&
                 eval \${$_t:+:} false && {
                     #__ip_debug "Excluding '$_p' ('\$$_t' is true)"
