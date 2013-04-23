@@ -30,7 +30,10 @@ INTRODUCTION:
 
 INSTALLATION:
 
-    To install, just copy src/iproute2 to /etc/bash_completion.d/iproute2.
+    On most systems, just copy src/iproute2 to /etc/bash_completion.d/iproute2.
+
+    Otherwise just copy it somewhere where an ordinary login shell will read it
+    as part of its startup sequence.
 
 TODO:
 
@@ -49,10 +52,20 @@ BUGS:
     Hostnames are legal where addresses are expected, but tabcompletion does
     not cope with them. It doesn't even read from /etc/hosts.
 
-    When the current word has a colon in it, bash uses the text returned by the
-    tabcompletion function and appends it after the last colon, rather than
-    replacing the whole word. This makes it particularly tricky to tabcomplete
-    IPv6 addresses.  We work around this, but it might break in future.
-
     Some things really don't have sensible completions, but we try anyway.
+
+IMPLEMENTATION ISSUES:
+
+    Differences between bash versions aren't accounted for; some (or all)
+    features may not work for bash versions before 4.0 or after 4.2.
+
+    The code depends on some very exotic features of Bash:
+     * the arcane scoping of variables in nested shell functions
+     * almost every permutation of variable substitution, including
+       * ${var:offset:length}
+       * ${var//pattern/replacement}
+       * ${var[index]} and var=( list of array elements )
+
+    Avoiding external commands was probably overkill and made the code
+    structure very complicated.
 
