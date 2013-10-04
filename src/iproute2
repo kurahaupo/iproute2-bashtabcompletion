@@ -46,25 +46,17 @@ __ip_cluck() {
 __ip_slurp() {
     local l
     while read l
-    do  l=${l//"	"/" "}     # squash tabs and spaces
-        l=${l//"        "/" "}     # ''
-        l=${l//"    "/" "}         # ''
-        l=${l//"  "/" "}           # ''
-        l=${l%%"#"*}               # strip comments
+    do  l=${l//$'\t'/' '}          # squash tabs and spaces
+        l=${l//'                '/' '} # ''
+        l=${l//'        '/' '}     # ''
+        l=${l//'    '/' '}         # ''
+        l=${l//'  '/' '}           # ''
+        l=${l%%'#'*}               # strip comments
         l=${l#"${l%%[^0-9]*} "}    # strip leading word comprised entirely of digits
         [[ -n $l ]] || continue
         echo "$l"
     done <$1
     return
-#Old version; needs external command
-#   sed -e '
-#            s/#.*//
-#            s/[        ][      ]*/ /g
-#            s/ $//
-#            s/^[0-9][0-9]* //
-#            /^$/d
-#            s/ /\n/g
-#           ' $1
 }
 
 #
@@ -132,7 +124,7 @@ __ip_exp_NUM() {
     local __i
     (( __i = $__radix#$__val ))
 
-    (( __min <= __i && __i <= __max )) && COMPREPLY+=("$__cur$__suffix")
+    (( __min <= __i && __i <= __max )) && COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
 
     local __min_digit __max_digit
 
@@ -148,7 +140,7 @@ __ip_exp_NUM() {
     __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit)"
 
     for ((__i=__min_digit;__i<=__max_digit;++__i)) do
-        COMPREPLY+=("${__cur}${__digits[__i]}")
+        COMPREPLY=( "${COMPREPLY[@]}" "${__cur}${__digits[__i]}" )
     done
 }
 
@@ -193,7 +185,7 @@ __ip_exp_ANY() {
         }
         _p="${_p%%=*}"
         _p="${_p:-$_t}"
-        COMPREPLY+=( "$_p$__suffix" )
+        COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
         #[[ $COMP_TYPE = best ]] && return 0  # unfortunately this doesn't work; after the first tab-key, the shell will always show a list, even if it (now) has only one member
     done
 }
@@ -384,7 +376,7 @@ __ip_chk_CUR() {
 }
 
 __ip_exp_CUR() {
-    COMPREPLY+=( "$__cur$__suffix" )
+    COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
 }
 
 __ip_match() {
@@ -613,7 +605,7 @@ _ip() {
                             esac
                             ;;
 
-            (link)          __ip_match ANY -V add delete list=show set show ||
+            (link)          __ip_match ANY -V add delete list=show ls=show set show ||
                             __ip_match_failed
                             __ip_debug_parsing_state P4
                             STATE+=+$_V

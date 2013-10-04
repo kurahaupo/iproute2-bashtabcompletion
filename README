@@ -56,8 +56,8 @@ BUGS:
 
 IMPLEMENTATION ISSUES:
 
-    Differences between bash versions aren't accounted for; some (or all)
-    features may not work for bash versions before 4.0 or after 4.2.
+    Differences between bash versions aren't accounted for; it appears to work
+    for some 3.x versions but only 4.0 & 4.2 have been thoroughly tested.
 
     The code depends on some very exotic features of Bash:
      * the arcane scoping of variables in nested shell functions
@@ -65,6 +65,7 @@ IMPLEMENTATION ISSUES:
        * ${var:offset:length}
        * ${var//pattern/replacement}
        * ${var[index]} and var=( list of array elements )
+         * var+=( list ) has been removed so that it will run on version 3
 
     Avoiding external commands was probably overkill and made the code
     structure very complicated.
