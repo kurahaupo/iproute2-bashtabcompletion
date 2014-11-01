@@ -41,7 +41,7 @@ Usage: ip addr { add
                | replace } [ { ADDR-or-PREFIX
                              | anycast ADDR
                              | broadcast ADDR
-                             | dev STRING
+                             | dev DEVICE
                              | home
                              | label STRING
                              | nodad
@@ -52,14 +52,15 @@ Usage: ip addr { add
        ip addr del { ADDR-or-PREFIX
                    | anycast ADDR
                    | broadcast ADDR
+                   | dev DEVICE                 #required
                    | label STRING
                    | peer PREFIX
-                   | scope SCOPE } dev STRING
+                   | scope SCOPE }
        ip addr { flush
                | list
                | show } [ { dadfailed
                           | deprecated
-                          | dev STRING
+                          | dev DEVICE
                           | dynamic
                           | home
                           | label PATTERN
@@ -93,81 +94,93 @@ Usage: ip addrlabel { add
 ################################
 link
 
-Usage: ip link add link DEVICE [ { [ name ] NAME
-                                 | txqueuelen PACKETS
-                                 | address LLADDR
-                                 | broadcast LLADDR
-                                 | mtu MTU
-                                 | type LTYPE+ARGS } ... ]
-       ip link delete DEVICE type LTYPE+ARGS
-       ip link set DEVICE [ { address LLADDR
-                            | alias NAME
-                            | allmulticast { on | off }
-                            | arp { on | off }
-                            | broadcast LLADDR
-                            | down
-                            | dynamic { on | off }
-                            | mtu MTU
-                            | multicast { on | off }
-                            | name NEWNAME
-                            | netns PID
-                            | promisc { on | off }
-                            | trailers { on | off }
-                            | txqueuelen PACKETS
-                            | up
-                            | vf NUM [ VFOPT ... ] } ... ]
-       ip link show [ DEVICE ]
+Usage: ip link add { address LLADDR
+                   | broadcast LLADDR
+                   | link DEVICE                #required(1)
+                   | mtu MTU
+                   | [ name ] NAME              #required
+                   | txqueuelen PACKETS } ...
+                   type LTYPE+ARGS
+       ip link delete [ dev ] DEVICE
+                      type LTYPE+ARGS
+       ip link set { address LLADDR
+                   | alias NAME
+                   | allmulticast { on | off }
+                   | arp { on | off }
+                   | broadcast LLADDR
+                   | [ dev ] DEVICE             #required(1)
+                   | down                       #not with 'up'
+                   | dynamic { on | off }
+                   | mtu MTU
+                   | multicast { on | off }
+                   | name NEWNAME
+                   | netns PID
+                   | promisc { on | off }
+                   | trailers { on | off }
+                   | txqueuelen PACKETS
+                   | up } ...                   #not with 'down'
+                   [ vf NUM { mac LLADDR
+                            | rate TXRATE
+                            | vlan VLANID [ qos VLAN-QOS ] } ]
+       ip link show [ { [ dev ] DEVICE
+                      | group DEVGROUP } ]
 
-VFOPT := { mac LLADDR
-         | rate TXRATE
-         | vlan NUM:1:4095 [ qos VLAN-QOS ] }
 
-LTYPE+ARGS := { can [ CANLINKARG ... ]
+VLANID := { 1..4095 }
+VLANID0 := { 0..4095 }
+VLAN-QOS := (unknown)
+
+LTYPE+ARGS := { can [ CAN_ARG ... ]
               | dummy
               | ifb
-              | macvlan [ MVLARGS ... ]
+              | macvlan [ MV_ARG ... ]
               | vcan
-              | veth [ VEARGS ... ]
-              | vlan id NUM:1:4095 [ VLFLAG ... ] }
+              | veth [ VE_ARG ... ]
+              | vlan [ VL_ARG ... ] }
 
-CANLINKARG := { berr-reporting { on | off }
-              | bitrate BITRATE
-              | listen-only { on | off }
-              | loopback { on | off }
-              | one-shot { on | off }
-              | phase-seg1 NUM:1:8
-              | phase-seg2 NUM:1:8
-              | prop-seg NUM:1:8
-              | restart
-              | restart-ms NUMBER @milliseconds@
-              | sample-point SAMPLE-POINT
-              | sjw NUM:1:4
-              | tq NUMBER
-              | triple-sampling { on | off } }
+CAN_ARG := { berr-reporting { on | off }
+           | bitrate BITRATE
+           | listen-only { on | off }
+           | loopback { on | off }
+           | one-shot { on | off }
+           | phase-seg1 SEGNUM
+           | phase-seg2 SEGNUM
+           | prop-seg SEGNUM
+           | restart
+           | restart-ms NUMBER                  #milliseconds
+           | sample-point SAMPLE-POINT
+           | sjw { 1..4 }
+           | tq NUMBER
+           | triple-sampling { on | off } }
 
 BITRATE := { 1..1000000 }
+SEGNUM := { 1..8 }
 SAMPLE-POINT := { 0.000..0.999 }
 
-MVLARGS := mode MVLMODE
-MVLMODE := { bridge
-           | private
-           | vepa }
+MV_ARG := mode { bridge
+               | private
+               | vepa }
 
-VEARGS := peer VEOPTS
-VEOPTS := ?WORD?
-VLFLAG := { egress-qos-map QOS-MAPPING ...
+VE_ARG := peer [ VE_OPT ... ]
+VE_OPT := (unknown)
+
+VL_ARG := { egress-qos-map QOS-MAP ...
           | gvrp { on | off }
-          | ingress-qos-map QOS-MAPPING ...
+          | id VLANID                           #required
+          | ingress-qos-map QOS-MAP ...
           | loose_binding { on | off }
           | reorder_hdr { on | off } }
-QOS-MAPPING := FROM:TO
+QOS-MAP := FROM:TO
+
+FROM := 32bitNUMBER
+TO := 32bitNUMBER
 
 ################################
 maddr
 
 Usage: ip maddr { add
-                | del } MULTIADDR dev STRING
-       ip maddr show [ dev STRING ]
+                | del } MULTIADDR dev DEVICE
+       ip maddr show [ dev DEVICE ]
 
 ################################
 monitor
@@ -252,7 +265,7 @@ Usage: ip route { flush
                 | monitor } [ { [ RTYPE ] PREFIX
                               | advmss NUMBER
                               | cwnd NUMBER
-                              | dev STRING
+                              | dev DEVICE
                               | equalize @DEPRECATED@
                               | hoplimit NUMBER
                               | initcwnd NUMBER
@@ -275,7 +288,7 @@ Usage: ip route { flush
                               | via ADDRESS
                               | weight NUMBER
                               | window NUMBER } ... ]
-                            [ nexthop { dev STRING
+                            [ nexthop { dev DEVICE
                                       | onlink
                                       | pervasive
                                       | via ADDRESS
@@ -321,12 +334,12 @@ rule
 Usage: ip rule { list
                | add
                | del
-               | flush } [ { dev STRING @DEPRECATED@
+               | flush } [ { dev DEVICE         #deprecated
                            | from PREFIX
                            | fwmark FWMARK[/MASK]
                            | not
                            | pref NUMBER
-                           | prio NUMBER @DEPRECATED@
+                           | prio NUMBER        #deprecated
                            | to PREFIX
                            | tos TOS } ... ]
                          [ ACTION ... ]
