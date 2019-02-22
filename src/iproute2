@@ -564,6 +564,7 @@ _ip() {
                                           mroute neigh ntable route rule tunnel \
                                           xfrm \
                                           -0='-family link' -4='-family inet' -6='-family inet6' \
+                                          -B='-family bridge' -D='-family decnet' -I='-family ipx' \
                                           -batch      --batch=-batch           \
                                           -details    --details=-details       \
                                           -family     --family=-family         \
@@ -574,12 +575,16 @@ _ip() {
                                           -Version    --Version=-Version       
                             __ip_debug_parsing_state P4
                             case $_V in
-                            (-*family) STATE+=/FAMILY ;;
-                            (-0)      save_family=-Flink __ip_seen___family=true ;;
-                            (-4)      save_family=-Finet __ip_seen___family=true ;;
-                            (-6)      save_family=-Finet6 __ip_seen___family=true ;;
-                            (-*batch) STATE+=/BATCHFILE ;;
-                            (-*|'') ;;
+                            (-family) STATE+=/FAMILY ;;
+                            (-0)      save_family=-Flink ;;
+                            (-4)      save_family=-Finet ;;
+                            (-6)      save_family=-Finet6 ;;
+                            (-B)      save_family=-Fbridge ;;
+                            (-D)      save_family=-Fdecnet ;;
+                            (-I)      save_family=-Fipx ;;
+
+                            (-batch)  STATE+=/BATCHFILE ;;
+                            (-*|'')   ;;
                             (*)       STATE=$_V ;;
                             esac
                             ;;
