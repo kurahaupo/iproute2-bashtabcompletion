@@ -5,8 +5,9 @@
 # Written by Martin D Kealey <martin@kurahaupo.gen.nz>
 #
 # Released at LCA2010, 19 January 2010.
-# Updated to use proper parser state-stack April 2012.
+# Updated to use a parser state-stack April 2012.
 # Improved clean-up-at-exit Feb 2019
+# Progressively updated for different versions of the "ip" command
 #
 # You may copy and use this program under the terms of version three of the Gnu
 # Public Licence, or any later version as published by the Free Software
