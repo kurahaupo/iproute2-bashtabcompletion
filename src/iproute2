@@ -6,6 +6,7 @@
 #
 # Released at LCA2010, 19 January 2010.
 # Updated to use proper parser state-stack April 2012.
+# Improved clean-up-at-exit Feb 2019
 #
 # You may copy and use this program under the terms of version three of the Gnu
 # Public Licence, or any later version as published by the Free Software
@@ -35,6 +36,29 @@ _ip() {
     local max_num= min_num=
     local expecting=
     local __ip_seen_PREFIX=false
+
+    # Too hard to localize everything, so clean up upon return
+    # All functions named as __ip__cleanup* will be called in collation order.
+    # All functions and variables named as __ip_* will be unset
+    __ip__cleanup() {
+        trap RETURN
+        local __ip__c
+        local -a __ip__cc
+        while IFS=$' \t\n' read -ra __ip__cc <&3
+        do
+            for __ip__c in "${__ip__cc[@]}"
+            do
+                [[ $__ip__c = __ip__cleanup?* ]] && "$__ip__c"
+                [[ $__ip__c = __ip_* ]] && unset -f "$__ip__c"
+            done
+        done 3< <( declare -F )
+        for __ip__c in "${__ip_cleanup[@]}"; do "$__ip__c" ; unset -f "$__ip__c" ; done
+        unset "${!__ip_@}"
+
+        unset -f __ip__cleanup
+    }
+    __ip__cleanup
+    trap __ip__cleanup RETURN
 
     #
     # If the function "cluck" is defined, use it; otherwise display the given
@@ -458,20 +482,16 @@ _ip() {
 
     COMPREPLY=()
 
-    # Too hard to localize everything, so clean up from last time
-    unset ${!__ip_seen_*}
-
     if ${COMP_VERBOSE:+:} false
     then
         if [[ -t 3 || -w /dev/fd/3 || -w /proc/self/fd/3 ]]
         then
-            # If fd#3 is already open, assume it's dedicated for debug output
-            # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
-            trap "
-                    trap RETURN ;
-                    echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
-                    echo >&3 \"Completion END: COMPREPLY=(\${COMPREPLY[*]})\"\$'\\e[49;39;0m\n' ;
-                " RETURN
+            __ip__cleanup_debug() {
+                # If fd#3 is already open, assume it's dedicated for debug output
+                # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
+                echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
+                echo >&3 \"Completion END: COMPREPLY=(\${COMPREPLY[*]})\"\$'\\e[49;39;0m\n' ;
+            }
             echo -n >&3 "${COMP_VERBOSE_INIT:-$'\n################################\n'}"
         else
             # Otherwise, assuming that we're on an Xterm or compatible, display
@@ -479,13 +499,12 @@ _ip() {
             : ${COMP_VERBOSE_TINT=$'\e[48;5;210;30m'}  # 256-colour background
             exec 3>&2
             echo -n >&3 $'\e7'
-            trap "
-                    trap RETURN ;
-                    echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
-                    echo -n >&3 \"Completion END: COMPREPLY=('\${COMPREPLY[*]}')\"\$'\\e[49;39;0m' ;
-                    echo -n >&3 \$'\\e8' ;
-                    exec 3>&- ;
-                " RETURN
+            __ip__cleanup_debug() {
+                echo >&3 \"Completion SEEN: \${!__ip_seen_*}\"
+                echo -n >&3 \"Completion END: COMPREPLY=('\${COMPREPLY[*]}')\"\$'\\e[49;39;0m'
+                echo -n >&3 \$'\\e8'
+                exec 3>&-
+            }
             echo -n >&3 $'\e[A\e[999I'"${COMP_VERBOSE_TINT}"$'\e[1J\e[5H'
         fi
         echo >&3 "Completion START: ARGS=($*) WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD KEY=$COMP_KEY" \
@@ -503,7 +522,6 @@ _ip() {
         __ip_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
         __ip_warning() { echo >&3 "Completion WARNING $*" ; }
     else
-        trap ' unset ${!__ip_seen_*} ' RETURN
         __ip_debug() { : ; }
         __ip_debug_parsing_state() { : ; }
         __ip_debug_unexpected() { : ; }
@@ -1037,14 +1055,16 @@ _ip() {
             done
         fi
 
-        unset ${!__ip_seen_*}
+        __ip__cleanup
         return 0
     done  # }}} end dummy loop
     COMPREPLY=()
     __ip_debug_parsing_state '***ABORT***'
     #__ip_unexpected "Lost sync? STATE=$STATE expect=$expecting cur=$__cur"
-    unset ${!__ip_seen_*}
+
     [[ $COMP_TYPE = best ]] && COMP_TYPE=9
+
+    __ip__cleanup
     return 1
 }
 complete -F _ip -o nospace ip
