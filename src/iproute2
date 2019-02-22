@@ -17,415 +17,6 @@
 
 [[ $(type -t have) != function ]] || have ip || return
 
-#
-# If the function "cluck" is defined, use it; otherwise display the given
-# message, with a stack trace using the "caller" built-in (if available).
-#
-__ip_cluck() {
-    ${COMP_VERBOSE:+:} false || return
-    if [[ $( type -t cluck ) = function ]]
-    then
-        (cluck "$@" >&3 2>&3)
-    elif [[ $( type -t caller ) = builtin ]]
-    then
-        echo >&3 "$*"
-        local l d
-        for ((l=1;l<20;l++)) do
-            d=$(caller $l) && [[ -n $d ]] || break
-            echo >&3 "    $d"
-        done
-        echo >&3
-    else
-        echo >&3 "$*"
-    fi
-}
-
-#
-# Read in the contents of a file, minus comments
-#
-__ip_slurp() {
-    local l
-    while read l
-    do  l=${l//$'\t'/' '}          # squash tabs and spaces
-        l=${l//'                '/' '} # ''
-        l=${l//'        '/' '}     # ''
-        l=${l//'    '/' '}         # ''
-        l=${l//'  '/' '}           # ''
-        l=${l%%'#'*}               # strip comments
-        l=${l#"${l%%[^0-9]*} "}    # strip leading word comprised entirely of digits
-        [[ -n $l ]] || continue
-        echo "$l"
-    done <$1
-    return
-}
-
-#
-# The __ip_match* family of functions attempt to match various
-#
-# They rely on three global variables: COMP_WORDS[], COMP_CWORD & cword_index.
-# (When cword_index equals COMP_CWORD, this is the "focal" word, so generate a
-# full list of possible matches; otherwise we're just parsing before the focal
-# word, so just do basic checking, and stash the value if requested.)
-#
-# The only time they return "true" is when they have *the only* possible match,
-# and that generally means only for non-focus words.
-#
-# __ip_match NUM [--[signed-]N-bit] [--max=N] [--min=N]
-#                   [-A | -Bauto | -BN]
-#                   [-Iprefix] [-Ssuffix] [-V[varname]]
-
-__ip_chk_NUM() {
-    __ip_debug "CHECKNUM $*"
-    if
-        [[ $__val = ?*     && $__val != *[^0-9]*      ]] ||
-        [[ $__radix = auto && $__val = 0x?* && $__val != 0x*[^0-9a-f]* ]] ||
-        [[ $__radix = 16   && $__val != *[^0-9a-f]*   ]]
-    then
-        (( __val += 0 ))
-        return 0
-    else
-        (( __val = 0 ))
-        return 1
-    fi
-}
-
-__ip_exp_NUM() {
-    local -a __digits=( 0 1 2 3 4 5 6 7 8 9 a b c d e f g h i j k l m n o p q r s t u v w x y z A B C D E F G H I J K L M N O P Q R S T U V W X Y Z @ _ )
-    __ip_debug "MATCHNUM min=$__min max=$__max radix=$__radix prefix=$__ignore_prefix suffix=$__suffix $*"
-    if [[ ${__radix:?'Radix not set!'} = auto ]]
-    then
-        case $__val in
-        (0x*) __radix=16 ;;
-        (0*)  __radix=8 ;;
-        (*)   __radix=10 ;;
-        esac
-    fi
-
-    __val=${__val#0x} __val=${__val#${__val%%[^0]*}}
-    if (( ${#__neg} & 1 ))
-    then
-        case $__min:$__max in
-        (:?*)   ((__min=-__max)) ; __max= ;;
-        (*?:)   ((__max=-__min)) ; __min= ;;
-        (*?:?*) eval "(( __min=-($__max), __min=-($__min) )) " ;;
-        esac
-    fi
-
-    # No non-digits allowed
-    # Check that it contains no disallowed digits
-    if  [[ $__val = *[^${__digits[*]:0:__radix}]* || $__val = *' '* ]]
-    then
-        __ip_unexpected "MATCHNUM $__val not suitable for radix $__radix"
-        return 1
-    fi
-
-    # TODO INSERT NEW ALGORITHM HERE
-
-    local __i
-    (( __i = $__radix#$__val ))
-
-    (( __min <= __i && __i <= __max )) && COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
-
-    local __min_digit __max_digit
-
-    (( __offset = __i * __radix ))
-    while
-        (( __min_digit = (${#__min}==0 || __min < __offset ? 0 : __min - __offset),
-           __max_digit = (${#__max}==0 || __max >= __offset+__radix ? __radix-1 : __max - __offset ) ))
-        (( __min_digit >= __radix ))
-    do
-        __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit) RETRY"
-        (( __min/=__radix, __max/=__radix ))
-    done
-    __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit)"
-
-    for ((__i=__min_digit;__i<=__max_digit;++__i)) do
-        COMPREPLY=( "${COMPREPLY[@]}" "${__cur}${__digits[__i]}" )
-    done
-}
-
-#
-# __ip_match ANY [-R[KEY]] [-S[SUFFIX]] [-V[VARNAME]] [MATCH-LIST...]
-#
-# The MATCH-LIST elements are of the form [MATCH=]TOKEN or MATCH=[TOKEN]=GROUP.
-# The TOKEN is included in COMPREPLY (which means it may replace a partially
-# typed ALIAS); GROUP is used to set the -V parameter (if set).
-#
-
-__ip_chk_ANY() {
-    #__ip_debug "CHECK seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
-    for _p do
-        _t="${_p%%=*}"
-        [[ $_t = "$__val"* ]] || continue
-        _p="${_p#*=}"
-        $__skip_seen && {
-            _q="${_p#*=}"
-            _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
-            #__ip_debug "Remembering that $_p has been seen (setting $_q=true)"
-            eval $_q=true
-        }
-        _p="${_p%%=*}"
-        _p="${_p:-$_t}"
-        __val="$_p"
-        return 0
-    done
-    return 1
-}
-
-__ip_exp_ANY() {
-    #__ip_debug "MATCH seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
-    for _p do
-        _t="${_p%%=*}"
-        [[ $_t = "$__val"* ]] || continue
-        _p="${_p#*=}"
-        $__skip_seen && {
-            _q="${_p#*=}"
-            _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
-            eval \${$_q:+:} false && continue
-        }
-        _p="${_p%%=*}"
-        _p="${_p:-$_t}"
-        COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
-        #[[ $COMP_TYPE = best ]] && return 0  # unfortunately this doesn't work; after the first tab-key, the shell will always show a list, even if it (now) has only one member
-    done
-}
-
-__ip_chk_ADDR() {
-    $accept_prefix && [[ $__val = */* && $__val != */*[^0-9]* ]] && __val=${__val%/*}
-    { $accept_default && [[ default = "$__val"* ]] ; } ||
-    { $accept_ipv6   && [[ $__val = *::* || $__val = *:*:*:*:*:*:*:* || $__val = *:*:*:*:*:*:*.*.*.* ]] ; } ||
-    { $accept_ipv4   && [[ $__val = *.*.*.* && $__val != *:* ]] ; } ||
-    { $accept_link   && [[ $__val = ??:??:??:??:??:?? ]] ; } || {
-        __ip_warning "Cannot match '$__val' as requested type of address"
-        return 1
-    }
-}
-
-__ip_exp_ADDR() {
-    # Accept "default" keyword, if appropriate
-    if $accept_default
-    then
-        __ip_match ANY default
-        return
-    fi
-
-    if $accept_prefix
-    then
-        __ip_debug "Looking for prefix"
-        case $__val in
-        (*:*/*) __ip_match NUM -I'*/' -B10 --min=1 --max=128 ; return ;;
-        (*/*)   __ip_match NUM -I'*/' -B10 --min=1 --max=32  ; return ;;
-        (*.*.*.*?|*::|*::*:*?|*:*:*:*:*:*:*:*) __ip_match CUR -S/ ;;
-        esac
-    else
-        case $__val in
-        (*/*)   __ip_warning "Prefix not allowed" ;; # return ;;
-        esac
-    fi
-
-    if $accept_link
-    then
-        __ip_debug "Looking for link-layer MAC (Ethernet) address"
-        case :$__val in
-        (*::*|*:?:*|*[^:][^:][^:]*|*[^0-9a-f:]*) ;;
-        (:??:??:??:??:??:??) __ip_match CUR ;;
-        (*:??)              __ip_match CUR -S: ;;
-        (*)                 __ip_match NUM -I'*:' -B16 --8bit ;;
-        esac
-    fi
-
-    if $accept_ipv6
-    then
-        __ip_debug "Looking for IPv6 address"
-
-        __ip_match ANY -S'' fe80:: fc00:: :: ::1
-
-        # one 16-bit block
-        case $__val in
-        (*:*:*:*:*:*:*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR ;;                      # whole last block?
-        (*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR    -S: ;;                           # whole middle block?
-        (*:*:*:*:*:*:*:*)   __ip_match NUM -I'*:' -B16 --16bit     ;;                           # last block?
-        (*:*)               __ip_match NUM -I'*:' -B16 --16bit -S: ;;                           # middle block
-        (*)                 __ip_match NUM        -B16 --16bit -S: --min=0x2000 --max=0x3fff ;; # first block?
-        esac
-
-        # embedded IPv4?
-        case $__val in
-        (::*.*.*.*) __ip_match NUM -I'*.'    -A --8bit ;;
-        (::*:*) ;;
-        (::*)       __ip_match NUM -I'*[:.]' -A --8bit -S. ;;
-        esac
-
-        # complete as-is?
-        [[ ( $__val = *:*:*:*:*:*:*:*? || $__val = *::*? ) && $__val != *. ]] && __ip_match CUR -S' '
-
-    fi
-
-    if $accept_ipv4
-    then
-        __ip_debug "Looking for IPv4 address"
-        case $__val in
-        (*:*)       ;;
-        (*.*.*.*)   __ip_match NUM -I'*.' -A --8bit ;;
-        (*)         __ip_match NUM -I'*.' -A --8bit -S. ;;
-        esac
-    fi
-}
-
-__ip_match_addr() {
-  # __ip_match ADDR "$@"
-  # return $?
-    local accept_link= accept_ipv4= accept_ipv6= \
-          accept_prefix=false accept_default=false \
-          require_multicast=false require_unicast=false
-    local __set_var=
-    local __skip_seen=false _R= __seen_pref= _p
-
-    while [[ $1 = -* ]]
-    do
-        case $1 in
-        ( -Fdual )          accept_ipv4=true accept_ipv6=true ;;
-        ( -Finet  )         accept_ipv4=true ;;
-        ( -Finet6  )        accept_ipv6=true ;;
-        ( -Flink  )         accept_link=true ;;
-      # ( -F*)              __ip_unexpected "Family '${1#-?}' is not supported" ; return 0 ;;
-        ( -m )              require_multicast=true ;;
-        ( -p )              accept_prefix=true ;;
-        ( -pd )             accept_prefix=true accept_default=true ;;
-        ( -R* )             __skip_seen=true _R=$1 _p=${1#-?} __seen_pref=__ip_seen_${_p:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
-        ( -V* )             _p=${1#-?} __set_var=${_p:-_V} ;;
-        (*)                 __ip_error "Invalid option '$1' to __ip_match_addr" ; break 3 ;;
-        esac
-        shift
-    done
-    : ${accept_link:=false} ${accept_ipv4=false} ${accept_ipv6=false}
-
-    local __cur="${COMP_WORDS[cword_index]}"
-    local __val="${__cur##$__ignore_prefix}"
-
-    __ip_debug "Completing address starting with '$__cur'; will accept" $( for w in ipv4 ipv6 prefix link ; do eval \$accept_$w && echo $w ; done )
-
-    # Reject impossible things...
-    if [[ ( $__cur = *[^0-9a-f:./]* && default != "$__cur"* ) ||
-          $__cur = *:*:*:*:*:*:*:*:* ||
-          $__cur = *:::* ||
-          $__cur = *::*::* ||
-          $__cur = *.*.*.*.* ||
-          $__cur = *.*[^0-9./]* ||
-          $__cur = */*[^0-9]* ]]
-    then
-        __ip_warning "Cannot match '$__cur' as any type of address"
-        return 1
-    fi
-
-    if ((cword_index==COMP_CWORD))
-    then
-        __ip_debug "EXPAND-ADDR $*"
-        __ip_exp_ADDR "$@"
-        return 1
-    else
-        __ip_debug "CHECK-ADDR $*"
-        __ip_chk_ADDR "$@" || return $?
-        [[ -n $__set_var ]] && {
-            __ip_debug "SETVAR saving ADDR '$__cur' into $__set_var"
-            eval "$__set_var=\"\$__cur\""
-        }
-        return 0
-    fi
-}
-
-#
-# __ip_match_empty and __ip_match_failed may be called when other matching
-# functions return non-zero; they take some rather peculiar action as a result:
-#
-# * 'break' will cause the match loop will cease and possible completions
-#   computed so far (COMPREPLY) will be used
-# * 'break 2' will cause all processing will immediately stop, and no
-#   completions will be available
-# * 'decrement cword_index and continue' will cause the match loop will start
-#   over, testing the same word against the previous non-terminal, adding to
-#   the possible completions computed so far (COMPREPLY).
-#
-
-__ip_match_empty()  {
-    __ip_debug_parsing_state "MATCH-EMPTY(1) $expecting"
-    ((--cword_index))
-    continue
-}
-
-__ip_match_failed() {
-    if ((__empty))
-    then
-        # treat same as __ip_match_empty
-        __ip_debug_parsing_state "MATCH-EMPTY(2) $expecting"
-        ((--cword_index))
-        continue
-    elif ((cword_index==COMP_CWORD))
-    then
-        __ip_debug_parsing_state "MATCH-LAST $expecting"
-        break
-    fi
-
-    __ip_debug_parsing_state "MATCH-FAILED $expecting"
-    __ip_cluck -x -s -S0 "MATCH-FAILED $expecting BACKTRACE"
-    break 2
-}
-
-__ip_chk_CUR() {
-    true
-}
-
-__ip_exp_CUR() {
-    COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
-}
-
-__ip_match() {
-    local _w="$1" ; shift
-
-    local __skip_seen=false _R= __seen_pref=
-    local __set_var=
-    local __max= __min=0 __radix=auto
-    local __ignore_prefix= __suffix=' '
-    local _p _q _t
-
-    while [[ $1 = -* ]]
-    do
-        case $1 in
-        ( --[0-9]*bit )     (( _p=${1//[^0-9]/}, __min=0, __max=(1<<_p)-1)) ;;
-        ( --max*=* )        __max=${1#--*=} ;;
-        ( --min*=* )        __min=${1#--*=} ;;
-        ( --s*[0-9]*bit )   (( _p=${1//[^0-9]/}-1, __min=-1<<_p, __max=(1<<_p)-1)) ;;
-        ( -A )              __radix=auto ;;
-        ( -B?* )            __radix=${1#-?} ;;
-        ( -I* )             __ignore_prefix=${1#-?} ;;
-        ( -R* )             __skip_seen=true _R=$1 _p=${1#-?} __seen_pref=__ip_seen_${_p:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
-        ( -S* )             __suffix=${1#-?} ;;
-        ( -V* )             _p=${1#-?} __set_var=${_p:-_V} ;;
-        (*)                 __ip_error "Invalid option '$1' to __ip_match[$_w]" ;;
-        esac
-        shift
-    done
-
-    local __cur="${COMP_WORDS[cword_index]}"
-    local __val="${__cur##$__ignore_prefix}"
-
-    # Need to look at how _getword works
-    if ((cword_index==COMP_CWORD))
-    then
-        __ip_debug "EXPAND-$_w $*"
-        __ip_exp_$_w "$@"
-        return 1
-    else
-        __ip_debug "CHECK-$_w $*"
-        __ip_chk_$_w "$@" || return $? 
-        [[ -n $__set_var ]] && {
-            __ip_debug "SETVAR saving $_w '$__val' into $__set_var"
-            eval "$__set_var=\"\$__val\""
-        }
-        return 0
-    fi
-}
-
 _ip() {
     case $COMP_TYPE in
     (63) ((++__ip_comp_count >= 3)) && COMP_TYPE=best ;;
@@ -444,6 +35,415 @@ _ip() {
     local max_num= min_num=
     local expecting=
     local __ip_seen_PREFIX=false
+
+    #
+    # If the function "cluck" is defined, use it; otherwise display the given
+    # message, with a stack trace using the "caller" built-in (if available).
+    #
+    __ip_cluck() {
+        ${COMP_VERBOSE:+:} false || return
+        if [[ $( type -t cluck ) = function ]]
+        then
+            (cluck "$@" >&3 2>&3)
+        elif [[ $( type -t caller ) = builtin ]]
+        then
+            echo >&3 "$*"
+            local l d
+            for ((l=1;l<20;l++)) do
+                d=$(caller $l) && [[ -n $d ]] || break
+                echo >&3 "    $d"
+            done
+            echo >&3
+        else
+            echo >&3 "$*"
+        fi
+    }
+
+    #
+    # Read in the contents of a file, minus comments
+    #
+    __ip_slurp() {
+        local l
+        while read l
+        do  l=${l//$'\t'/' '}          # squash tabs and spaces
+            l=${l//'                '/' '} # ''
+            l=${l//'        '/' '}     # ''
+            l=${l//'    '/' '}         # ''
+            l=${l//'  '/' '}           # ''
+            l=${l%%'#'*}               # strip comments
+            l=${l#"${l%%[^0-9]*} "}    # strip leading word comprised entirely of digits
+            [[ -n $l ]] || continue
+            echo "$l"
+        done <$1
+        return
+    }
+
+    #
+    # The __ip_match* family of functions attempt to match various
+    #
+    # They rely on three global variables: COMP_WORDS[], COMP_CWORD & cword_index.
+    # (When cword_index equals COMP_CWORD, this is the "focal" word, so generate a
+    # full list of possible matches; otherwise we're just parsing before the focal
+    # word, so just do basic checking, and stash the value if requested.)
+    #
+    # The only time they return "true" is when they have *the only* possible match,
+    # and that generally means only for non-focus words.
+    #
+    # __ip_match NUM [--[signed-]N-bit] [--max=N] [--min=N]
+    #                   [-A | -Bauto | -BN]
+    #                   [-Iprefix] [-Ssuffix] [-V[varname]]
+
+    __ip_chk_NUM() {
+        __ip_debug "CHECKNUM $*"
+        if
+            [[ $__val = ?*     && $__val != *[^0-9]*      ]] ||
+            [[ $__radix = auto && $__val = 0x?* && $__val != 0x*[^0-9a-f]* ]] ||
+            [[ $__radix = 16   && $__val != *[^0-9a-f]*   ]]
+        then
+            (( __val += 0 ))
+            return 0
+        else
+            (( __val = 0 ))
+            return 1
+        fi
+    }
+
+    __ip_exp_NUM() {
+        local -a __digits=( 0 1 2 3 4 5 6 7 8 9 a b c d e f g h i j k l m n o p q r s t u v w x y z A B C D E F G H I J K L M N O P Q R S T U V W X Y Z @ _ )
+        __ip_debug "MATCHNUM min=$__min max=$__max radix=$__radix prefix=$__ignore_prefix suffix=$__suffix $*"
+        if [[ ${__radix:?'Radix not set!'} = auto ]]
+        then
+            case $__val in
+            (0x*) __radix=16 ;;
+            (0*)  __radix=8 ;;
+            (*)   __radix=10 ;;
+            esac
+        fi
+
+        __val=${__val#0x} __val=${__val#${__val%%[^0]*}}
+        if (( ${#__neg} & 1 ))
+        then
+            case $__min:$__max in
+            (:?*)   ((__min=-__max)) ; __max= ;;
+            (*?:)   ((__max=-__min)) ; __min= ;;
+            (*?:?*) eval "(( __min=-($__max), __min=-($__min) )) " ;;
+            esac
+        fi
+
+        # No non-digits allowed
+        # Check that it contains no disallowed digits
+        if  [[ $__val = *[^${__digits[*]:0:__radix}]* || $__val = *' '* ]]
+        then
+            __ip_unexpected "MATCHNUM $__val not suitable for radix $__radix"
+            return 1
+        fi
+
+        # TODO INSERT NEW ALGORITHM HERE
+
+        local __i
+        (( __i = $__radix#$__val ))
+
+        (( __min <= __i && __i <= __max )) && COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
+
+        local __min_digit __max_digit
+
+        (( __offset = __i * __radix ))
+        while
+            (( __min_digit = (${#__min}==0 || __min < __offset ? 0 : __min - __offset),
+               __max_digit = (${#__max}==0 || __max >= __offset+__radix ? __radix-1 : __max - __offset ) ))
+            (( __min_digit >= __radix ))
+        do
+            __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit) RETRY"
+            (( __min/=__radix, __max/=__radix ))
+        done
+        __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max) -> (min_digit=$__min_digit max_digit=$__max_digit)"
+
+        for ((__i=__min_digit;__i<=__max_digit;++__i)) do
+            COMPREPLY=( "${COMPREPLY[@]}" "${__cur}${__digits[__i]}" )
+        done
+    }
+
+    #
+    # __ip_match ANY [-R[KEY]] [-S[SUFFIX]] [-V[VARNAME]] [MATCH-LIST...]
+    #
+    # The MATCH-LIST elements are of the form [MATCH=]TOKEN or MATCH=[TOKEN]=GROUP.
+    # The TOKEN is included in COMPREPLY (which means it may replace a partially
+    # typed ALIAS); GROUP is used to set the -V parameter (if set).
+    #
+
+    __ip_chk_ANY() {
+        #__ip_debug "CHECK seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
+        for _p do
+            _t="${_p%%=*}"
+            [[ $_t = "$__val"* ]] || continue
+            _p="${_p#*=}"
+            $__skip_seen && {
+                _q="${_p#*=}"
+                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
+                #__ip_debug "Remembering that $_p has been seen (setting $_q=true)"
+                eval $_q=true
+            }
+            _p="${_p%%=*}"
+            _p="${_p:-$_t}"
+            __val="$_p"
+            return 0
+        done
+        return 1
+    }
+
+    __ip_exp_ANY() {
+        #__ip_debug "MATCH seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
+        for _p do
+            _t="${_p%%=*}"
+            [[ $_t = "$__val"* ]] || continue
+            _p="${_p#*=}"
+            $__skip_seen && {
+                _q="${_p#*=}"
+                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
+                eval \${$_q:+:} false && continue
+            }
+            _p="${_p%%=*}"
+            _p="${_p:-$_t}"
+            COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
+            #[[ $COMP_TYPE = best ]] && return 0  # unfortunately this doesn't work; after the first tab-key, the shell will always show a list, even if it (now) has only one member
+        done
+    }
+
+    __ip_chk_ADDR() {
+        $accept_prefix && [[ $__val = */* && $__val != */*[^0-9]* ]] && __val=${__val%/*}
+        { $accept_default && [[ default = "$__val"* ]] ; } ||
+        { $accept_ipv6   && [[ $__val = *::* || $__val = *:*:*:*:*:*:*:* || $__val = *:*:*:*:*:*:*.*.*.* ]] ; } ||
+        { $accept_ipv4   && [[ $__val = *.*.*.* && $__val != *:* ]] ; } ||
+        { $accept_link   && [[ $__val = ??:??:??:??:??:?? ]] ; } || {
+            __ip_warning "Cannot match '$__val' as requested type of address"
+            return 1
+        }
+    }
+
+    __ip_exp_ADDR() {
+        # Accept "default" keyword, if appropriate
+        if $accept_default
+        then
+            __ip_match ANY default
+            return
+        fi
+
+        if $accept_prefix
+        then
+            __ip_debug "Looking for prefix"
+            case $__val in
+            (*:*/*) __ip_match NUM -I'*/' -B10 --min=1 --max=128 ; return ;;
+            (*/*)   __ip_match NUM -I'*/' -B10 --min=1 --max=32  ; return ;;
+            (*.*.*.*?|*::|*::*:*?|*:*:*:*:*:*:*:*) __ip_match CUR -S/ ;;
+            esac
+        else
+            case $__val in
+            (*/*)   __ip_warning "Prefix not allowed" ;; # return ;;
+            esac
+        fi
+
+        if $accept_link
+        then
+            __ip_debug "Looking for link-layer MAC (Ethernet) address"
+            case :$__val in
+            (*::*|*:?:*|*[^:][^:][^:]*|*[^0-9a-f:]*) ;;
+            (:??:??:??:??:??:??) __ip_match CUR ;;
+            (*:??)              __ip_match CUR -S: ;;
+            (*)                 __ip_match NUM -I'*:' -B16 --8bit ;;
+            esac
+        fi
+
+        if $accept_ipv6
+        then
+            __ip_debug "Looking for IPv6 address"
+
+            __ip_match ANY -S'' fe80:: fc00:: :: ::1
+
+            # one 16-bit block
+            case $__val in
+            (*:*:*:*:*:*:*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR ;;                      # whole last block?
+            (*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR    -S: ;;                           # whole middle block?
+            (*:*:*:*:*:*:*:*)   __ip_match NUM -I'*:' -B16 --16bit     ;;                           # last block?
+            (*:*)               __ip_match NUM -I'*:' -B16 --16bit -S: ;;                           # middle block
+            (*)                 __ip_match NUM        -B16 --16bit -S: --min=0x2000 --max=0x3fff ;; # first block?
+            esac
+
+            # embedded IPv4?
+            case $__val in
+            (::*.*.*.*) __ip_match NUM -I'*.'    -A --8bit ;;
+            (::*:*) ;;
+            (::*)       __ip_match NUM -I'*[:.]' -A --8bit -S. ;;
+            esac
+
+            # complete as-is?
+            [[ ( $__val = *:*:*:*:*:*:*:*? || $__val = *::*? ) && $__val != *. ]] && __ip_match CUR -S' '
+
+        fi
+
+        if $accept_ipv4
+        then
+            __ip_debug "Looking for IPv4 address"
+            case $__val in
+            (*:*)       ;;
+            (*.*.*.*)   __ip_match NUM -I'*.' -A --8bit ;;
+            (*)         __ip_match NUM -I'*.' -A --8bit -S. ;;
+            esac
+        fi
+    }
+
+    __ip_match_addr() {
+      # __ip_match ADDR "$@"
+      # return $?
+        local accept_link= accept_ipv4= accept_ipv6= \
+              accept_prefix=false accept_default=false \
+              require_multicast=false require_unicast=false
+        local __set_var=
+        local __skip_seen=false _R= __seen_pref= _p
+
+        while [[ $1 = -* ]]
+        do
+            case $1 in
+            ( -Fdual )          accept_ipv4=true accept_ipv6=true ;;
+            ( -Finet  )         accept_ipv4=true ;;
+            ( -Finet6  )        accept_ipv6=true ;;
+            ( -Flink  )         accept_link=true ;;
+          # ( -F*)              __ip_unexpected "Family '${1#-?}' is not supported" ; return 0 ;;
+            ( -m )              require_multicast=true ;;
+            ( -p )              accept_prefix=true ;;
+            ( -pd )             accept_prefix=true accept_default=true ;;
+            ( -R* )             __skip_seen=true _R=$1 _p=${1#-?} __seen_pref=__ip_seen_${_p:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
+            ( -V* )             _p=${1#-?} __set_var=${_p:-_V} ;;
+            (*)                 __ip_error "Invalid option '$1' to __ip_match_addr" ; break 3 ;;
+            esac
+            shift
+        done
+        : ${accept_link:=false} ${accept_ipv4=false} ${accept_ipv6=false}
+
+        local __cur="${COMP_WORDS[cword_index]}"
+        local __val="${__cur##$__ignore_prefix}"
+
+        __ip_debug "Completing address starting with '$__cur'; will accept" $( for w in ipv4 ipv6 prefix link ; do eval \$accept_$w && echo $w ; done )
+
+        # Reject impossible things...
+        if [[ ( $__cur = *[^0-9a-f:./]* && default != "$__cur"* ) ||
+              $__cur = *:*:*:*:*:*:*:*:* ||
+              $__cur = *:::* ||
+              $__cur = *::*::* ||
+              $__cur = *.*.*.*.* ||
+              $__cur = *.*[^0-9./]* ||
+              $__cur = */*[^0-9]* ]]
+        then
+            __ip_warning "Cannot match '$__cur' as any type of address"
+            return 1
+        fi
+
+        if ((cword_index==COMP_CWORD))
+        then
+            __ip_debug "EXPAND-ADDR $*"
+            __ip_exp_ADDR "$@"
+            return 1
+        else
+            __ip_debug "CHECK-ADDR $*"
+            __ip_chk_ADDR "$@" || return $?
+            [[ -n $__set_var ]] && {
+                __ip_debug "SETVAR saving ADDR '$__cur' into $__set_var"
+                eval "$__set_var=\"\$__cur\""
+            }
+            return 0
+        fi
+    }
+
+    #
+    # __ip_match_empty and __ip_match_failed may be called when other matching
+    # functions return non-zero; they take some rather peculiar action as a result:
+    #
+    # * 'break' will cause the match loop will cease and possible completions
+    #   computed so far (COMPREPLY) will be used
+    # * 'break 2' will cause all processing will immediately stop, and no
+    #   completions will be available
+    # * 'decrement cword_index and continue' will cause the match loop will start
+    #   over, testing the same word against the previous non-terminal, adding to
+    #   the possible completions computed so far (COMPREPLY).
+    #
+
+    __ip_match_empty()  {
+        __ip_debug_parsing_state "MATCH-EMPTY(1) $expecting"
+        ((--cword_index))
+        continue
+    }
+
+    __ip_match_failed() {
+        if ((__empty))
+        then
+            # treat same as __ip_match_empty
+            __ip_debug_parsing_state "MATCH-EMPTY(2) $expecting"
+            ((--cword_index))
+            continue
+        elif ((cword_index==COMP_CWORD))
+        then
+            __ip_debug_parsing_state "MATCH-LAST $expecting"
+            break
+        fi
+
+        __ip_debug_parsing_state "MATCH-FAILED $expecting"
+        __ip_cluck -x -s -S0 "MATCH-FAILED $expecting BACKTRACE"
+        break 2
+    }
+
+    __ip_chk_CUR() {
+        true
+    }
+
+    __ip_exp_CUR() {
+        COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
+    }
+
+    __ip_match() {
+        local _w="$1" ; shift
+
+        local __skip_seen=false _R= __seen_pref=
+        local __set_var=
+        local __max= __min=0 __radix=auto
+        local __ignore_prefix= __suffix=' '
+        local _p _q _t
+
+        while [[ $1 = -* ]]
+        do
+            case $1 in
+            ( --[0-9]*bit )     (( _p=${1//[^0-9]/}, __min=0, __max=(1<<_p)-1)) ;;
+            ( --max*=* )        __max=${1#--*=} ;;
+            ( --min*=* )        __min=${1#--*=} ;;
+            ( --s*[0-9]*bit )   (( _p=${1//[^0-9]/}-1, __min=-1<<_p, __max=(1<<_p)-1)) ;;
+            ( -A )              __radix=auto ;;
+            ( -B?* )            __radix=${1#-?} ;;
+            ( -I* )             __ignore_prefix=${1#-?} ;;
+            ( -R* )             __skip_seen=true _R=$1 _p=${1#-?} __seen_pref=__ip_seen_${_p:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
+            ( -S* )             __suffix=${1#-?} ;;
+            ( -V* )             _p=${1#-?} __set_var=${_p:-_V} ;;
+            (*)                 __ip_error "Invalid option '$1' to __ip_match[$_w]" ;;
+            esac
+            shift
+        done
+
+        local __cur="${COMP_WORDS[cword_index]}"
+        local __val="${__cur##$__ignore_prefix}"
+
+        # Need to look at how _getword works
+        if ((cword_index==COMP_CWORD))
+        then
+            __ip_debug "EXPAND-$_w $*"
+            __ip_exp_$_w "$@"
+            return 1
+        else
+            __ip_debug "CHECK-$_w $*"
+            __ip_chk_$_w "$@" || return $? 
+            [[ -n $__set_var ]] && {
+                __ip_debug "SETVAR saving $_w '$__val' into $__set_var"
+                eval "$__set_var=\"\$__val\""
+            }
+            return 0
+        fi
+    }
 
     COMPREPLY=()
 
