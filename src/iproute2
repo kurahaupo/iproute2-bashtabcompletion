@@ -1016,7 +1016,7 @@ _ip() {
             (SCOPE)         __ip_match NUM --8bit ||
                             __ip_match ANY $( __ip_slurp /etc/iproute2/rt_scopes ) ||
                             __ip_match_failed ;;
-            (LABEL)         __ip_match ANY $save_device: || true ;;
+            (LABEL)         [[ $save_device ]] && __ip_match ANY $save_device: $save_device:... || true ;;
             (TABLE)         __ip_match NUM --8bit ||
                             __ip_match ANY default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
                             __ip_match_failed ;;
