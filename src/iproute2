@@ -30,7 +30,8 @@ _ip() {
     esac
     COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
 
-    # "seen" is stack of partial states, as a string separated by slashes, shallowest-to-deepest
+    # "expecting" is stack of partial states, as a string separated by slashes,
+    # shallowest-to-deepest
     local STATE=
     local cur="(start-of-line)"
     local cword_index=0
@@ -72,19 +73,19 @@ _ip() {
         ${COMP_VERBOSE:+:} false || return
         if [[ $( type -t cluck ) = function ]]
         then
-            (cluck "$@" >&3 2>&3)
+            (cluck "$@" 2>&1)
         elif [[ $( type -t caller ) = builtin ]]
         then
-            echo >&3 "$*"
+            echo "$*"
             local l d
             for ((l=1;l<20;l++)) do
-                d=$(caller $l) && [[ -n $d ]] || break
-                echo >&3 "    $d"
+                d=$( caller $l ) && [[ -n $d ]] || break
+                echo "    $d"
             done
-            echo >&3
+            echo
         else
-            echo >&3 "$*"
-        fi
+            echo "$*"
+        fi >&3
     }
 
     #
