@@ -19,6 +19,10 @@
 [[ $(type -t have) != function ]] || have ip || return
 
 _ip() {
+
+    [[  $true != 1 ]] || local -ri  true=1
+    [[ $false != 0 ]] || local -ri false=0
+
     case $COMP_TYPE in
     (63) ((++__ip_comp_count >= 3)) && COMP_TYPE=best ;;
     (9)  ((__ip_comp_count=1)) ;;
