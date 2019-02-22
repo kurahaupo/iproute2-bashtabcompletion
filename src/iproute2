@@ -91,6 +91,7 @@ _ip() {
 
     #
     # Read in the contents of a file, minus comments
+    # Avoid external commands (such as sed).
     #
     __ip_slurp() {
         local l
@@ -109,7 +110,7 @@ _ip() {
     }
 
     #
-    # The __ip_match* family of functions attempt to match various
+    # The __ip_match* family of functions attempt to match various patterns
     #
     # They rely on three global variables: COMP_WORDS[], COMP_CWORD & cword_index.
     # (When cword_index equals COMP_CWORD, this is the "focal" word, so generate a
@@ -171,7 +172,7 @@ _ip() {
             return 1
         fi
 
-        # TODO INSERT NEW ALGORITHM HERE
+        # TODO Use a better algorithm here
 
         local __i
         (( __i = $__radix#$__val ))
@@ -538,7 +539,7 @@ _ip() {
 
     local __perform_expansion=false
     for STATE in START ; do  # {{{
-        # dummy loop
+        # singleton "loop", so that "continue 2" works in the next loop
         for ((cword_index=1;cword_index<=COMP_CWORD;cword_index++)) do  # {{{
 
             ((cword_index==COMP_CWORD)) && __perform_expansion=true
@@ -1068,7 +1069,7 @@ _ip() {
 
         __ip__cleanup
         return 0
-    done  # }}} end dummy loop
+    done  # }}} end singleton loop
     COMPREPLY=()
     __ip_debug_parsing_state '***ABORT***'
     #__ip_unexpected "Lost sync? STATE=$STATE expect=$expecting cur=$__cur"
