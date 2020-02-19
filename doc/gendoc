@@ -1,35 +1,64 @@
-#!/bin/sh
+#!/bin/bash
+
+preview=0
+
+while [[ $1 = -?* ]]
+do
+    case $1 in
+    -p|--preview) preview=1 ;;
+    -h|--help) printf >&2 '%s [--preview]\n' "${0##*/}" ; exit 0 ;;
+    *) printf >&2 'Invalid option "%s"; try %s --help\n' "$1" "${0##*/}" ; exit 64 ;;
+    esac
+    shift
+done
+
+(($# == 0)) || { printf >&2 'Non-option args not permitted; try %s --help\n' "${0##*/}" ; exit 64 ; }
 
 ( printf -- '-Version\n\n'
   ( ip help
     ip link help ) 2>&1 |
    sed -ne '
-            /OBJECT *:= *{/,/}/ bq;
-            /TYPE *:= *{/,/}/bl;
+            s/   */ /g;
+
+            /{/ {
+                :a
+                /{.*{.*}/ s/{\([^{}]*\)}/«\1»/;
+                ta;
+                /}/! {
+                    N
+                    s/ *\n */ /
+                    ba
+                }
+            };
+
+            /OBJECT :=/ bo;
+            /TYPE :=/ by;
 
             d;
 
-            :l;
-            s/[{|] */&link set type /g;
+            :y;
+            s/[{|] */& link add dev gendoc_dummy type /g;
 
-            :q;
+            :o;
             s/.*:= *{ *//;
             s/ *} *$//;
 
-            s/| */\n/g;
+            s/ *| */\n/g;
 
-            s/  */ /g;
-            s/^ //;
-            s/ $//;
+            s/^ *//;
+            s/ *$//;
             p;
         ' |
     sort -u
 ) |
 
 while read t
-do  printf '%s\n\n' "$t"
-    ip $t help
-    printf '\n################################\n'
+do
+    printf 'ip %s help\n\n' "$t"
+    if ((!preview)) ; then
+        ip $t help
+        printf '\n################################\n'
+    fi
 done 2>&1 |
 
 sed -e '

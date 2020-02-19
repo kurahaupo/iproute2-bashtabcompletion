@@ -496,22 +496,21 @@ _ip() {
             __ip__cleanup_debug() {
                 # If fd#3 is already open, assume it's dedicated for debug output
                 # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
-                echo >&3 \"Completion SEEN: \${!__ip_seen_*}\" ;
-                echo >&3 \"Completion END: COMPREPLY=(\${COMPREPLY[*]})\"\$'\\e[49;39;0m\n' ;
-            }
+                printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
+                printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\n' "${COMPREPLY[*]}"
+            } >&3
             echo -n >&3 "${COMP_VERBOSE_INIT:-$'\n################################\n'}"
         else
             # Otherwise, assuming that we're on an Xterm or compatible, display
             # debugging "above" the current line
             : ${COMP_VERBOSE_TINT=$'\e[48;5;210;30m'}  # 256-colour background
             exec 3>&2
-            echo -n >&3 $'\e7'
+            printf >&3 '\e7'
             __ip__cleanup_debug() {
-                echo >&3 \"Completion SEEN: \${!__ip_seen_*}\"
-                echo -n >&3 \"Completion END: COMPREPLY=('\${COMPREPLY[*]}')\"\$'\\e[49;39;0m'
-                echo -n >&3 \$'\\e8'
                 exec 3>&-
-            }
+                printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
+                printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\e8' "${COMPREPLY[*]}"
+            } >&3
             echo -n >&3 $'\e[A\e[999I'"${COMP_VERBOSE_TINT}"$'\e[1J\e[5H'
         fi
         echo >&3 "Completion START: ARGS=($*) WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD KEY=$COMP_KEY" \

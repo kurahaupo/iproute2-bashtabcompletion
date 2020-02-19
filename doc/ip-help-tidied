@@ -1,31 +1,44 @@
 -Version
 
-ip utility, iproute2-ss100519
+ip utility, iproute2-ss131122
 
 ################################
 
-
-Usage: ip OPTIONS OBJECT { COMMAND | help }
+Usage: ip IPOPTIONS OBJECT { COMMAND | help }
        ip [ -force ] -batch { FILENAME | - }
 OBJECT := { addr
           | addrlabel
+          | l2tp
           | link
           | maddr
           | monitor
           | mroute
+          | mrule
           | neigh
+          | netns
           | ntable
           | route
           | rule
+          | tcp_metrics
+          | token
           | tunnel
           | tuntap
           | xfrm }
-OPTIONS := [ { -d[etails]
-             | -f[amily] { dnet
+IPOPTIONS := [ { -0
+             | -4
+             | -6
+             | -B
+             | -b[atch] [filename]
+             | -D
+             | -d[etails]
+             | -f[amily] { bridge
+                         | dnet
                          | inet
                          | inet6
                          | ipx
                          | link }
+             | -I
+             | -l[oops] { maximum-addr-flush-attempts }
              | -o[neline]
              | -r[esolve]
              | -rc[vbuf] [size]
@@ -34,52 +47,86 @@ OPTIONS := [ { -d[etails]
              | -V[ersion] } ... ]
 
 ################################
-addr
 
-Usage: ip addr { add
-               | change
-               | replace } [ { ADDR-or-PREFIX
-                             | anycast ADDR
-                             | broadcast ADDR
-                             | dev DEVICE
-                             | home
-                             | label STRING
-                             | nodad
-                             | peer PREFIX
-                             | preferred_lft LIFETIME
-                             | scope SCOPE
-                             | valid_lft LIFETIME } ... ]
-       ip addr del { ADDR-or-PREFIX
-                   | anycast ADDR
-                   | broadcast ADDR
-                   | dev DEVICE                 #required
-                   | label STRING
-                   | peer PREFIX
-                   | scope SCOPE }
-       ip addr { flush
-               | list
-               | show } [ { dadfailed
-                          | deprecated
-                          | dev DEVICE
-                          | dynamic
-                          | home
-                          | label PATTERN
-                          | nodad
-                          | permanent
-                          | primary
-                          | scope SCOPE
-                          | secondary
-                          | temporary
-                          | tentative
-                          | to PREFIX } ... ]
+ADDR := { IP4_ADDR | IP6_ADDR }
+
+ANY_ADDR := { ADDR
+            | any }
+
+DEVICE := STRING
+
+DPREFIX := { PREFIX | default }
+
+LIFETIME := { forever
+            | SECONDS }
+
+LLADDR := { HH:HH:HH:HH:HH:HH | HH:HH:HH:HH:HH:HH:HH:HH }
+
+ONE_BIT := { 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 }
+
+PREFIX := ADDR/NUMBER
 
 SCOPE := { global
          | host
          | link
          | NUMBER }
 
-LIFETIME := { forever
-            | SECONDS }
+USER  := { USERNAME | UID }
+
+USERGROUP := { GROUPNAME | GID }
+
+################################
+addr
+
+Usage: ip addr { add
+               | change
+               | replace
+               } [ { ADDR                       (% not with PREFIX %)
+                   | PREFIX                     (% not with ADDR %)
+                   | anycast ADDR
+                   | broadcast ADDR
+                   | dev DEVICE                 (% required %)
+                   | home
+                   | label DEVICE:STRING
+                   | nodad
+                   | peer PREFIX                (% not with PREFIX %)
+                   | preferred_lft LIFETIME
+                   | scope SCOPE
+                   | valid_lft LIFETIME
+                   } ... ]
+       ip addr del [ { ADDR                     (% not with PREFIX %)
+                     | PREFIX                   (% not with ADDR %)
+                     | anycast ADDR
+                     | broadcast ADDR
+                     | dev DEVICE               (% required %)
+                     | label STRING
+                     | peer PREFIX              (% not with PREFIX %)
+                     | scope SCOPE
+                     } ... ]
+       ip addr { flush
+               | save
+               | show
+               } [ { dadfailed
+                   | deprecated
+                   | dev DEVICE
+                   | dynamic
+                   | home
+                   | label PATTERN
+                   | nodad
+                   | permanent
+                   | primary
+                   | scope SCOPE
+                   | secondary
+                   | temporary
+                   | tentative
+                   | to PREFIX
+                   | up
+                   } ... ]
+       ip addr { showdump
+               | restore }
+
+aliases:
+  list → show
 
 ################################
 addrlabel
@@ -87,56 +134,124 @@ addrlabel
 Usage: ip addrlabel { add
                     | del
                     | flush
-                    | list } [ { dev DEVICE
-                               | label LABEL
-                               | prefix PREFIX } ... ]
+                    | list
+                    } [ { dev DEVICE
+                        | label LABEL
+                        | prefix PREFIX
+                        } ... ]
+
+aliases:
+  show → list
+
+################################
+l2tp
+
+Usage: ip l2tp add tunnel [ { encap { ip
+                                    | udp }
+                            | local ANY_ADDR
+                            | peer_tunnel_id ID
+                            | remote ANY_ADDR
+                            | tunnel_id ID
+                            | udp_dport PORT
+                            | udp_sport PORT
+                            } ... ]
+Usage: ip l2tp add session [ { cookie HEXSTR
+                             | l2spec_type L2SPEC
+                             | name NAME
+                             | offset OFFSET
+                             | peer_cookie HEXSTR
+                             | peer_offset OFFSET
+                             | peer_session_id ID
+                             | session_id ID
+                             | tunnel_id ID
+                             } ... ]
+       ip l2tp del tunnel tunnel_id ID
+       ip l2tp del session { tunnel_id ID | session_id ID } ...                                                            (% both required %)
+       ip l2tp show tunnel [ tunnel_id ID ]
+       ip l2tp show session [ { tunnel_id ID | session_id ID } ... ]
+
+NAME   := STRING
+ANY_ADDR   := { ADDR | any }
+PORT   := { 0..65535 }
+ID     := { 1..4294967295 }
+HEXSTR := { 8 or 16 hex digits (4 / 8 bytes) }
+L2SPEC := { none | default }
 
 ################################
 link
 
-Usage: ip link add { address LLADDR
-                   | broadcast LLADDR
-                   | link DEVICE                #required(1)
-                   | mtu MTU
-                   | [ name ] NAME              #required
-                   | txqueuelen PACKETS } ...
-                   type LTYPE+ARGS
-       ip link delete [ dev ] DEVICE
-                      type LTYPE+ARGS
-       ip link set { address LLADDR
-                   | alias NAME
-                   | allmulticast { on | off }
-                   | arp { on | off }
-                   | broadcast LLADDR
-                   | [ dev ] DEVICE             #required(1)
-                   | down                       #not with 'up'
-                   | dynamic { on | off }
-                   | mtu MTU
-                   | multicast { on | off }
-                   | name NEWNAME
-                   | netns PID
-                   | promisc { on | off }
-                   | trailers { on | off }
-                   | txqueuelen PACKETS
-                   | up } ...                   #not with 'down'
-                   [ vf NUM { mac LLADDR
-                            | rate TXRATE
-                            | vlan VLANID [ qos VLAN-QOS ] } ]
+Usage: ip link add [ { address LLADDR
+                     | broadcast LLADDR
+                     | link DEVICE              (% required %)
+                     | mtu MTU
+                     | [ name ] NAME            (% required %)
+                     | numrxqueues QUEUE_COUNT
+                     | numtxqueues QUEUE_COUNT
+                     | txqueuelen PACKETS
+                     | type LTYPE+ARGS          (% required %)
+                     } ... ]
+       ip link delete [ { [ dev ] DEVICE        (% required %)
+                        | type LTYPE+ARGS
+                        } ... ]
+       ip link set [ { address LLADDR
+                     | alias NAME
+                     | allmulticast { on | off }
+                     | arp { on | off }
+                     | broadcast LLADDR
+                     | [ dev ] DEVICE           (% 'dev' or 'group' required %)
+                     | down                     (% not with 'up' %)
+                     | dynamic { on | off }
+                     | group DEVGROUP           (% dev or group required %)
+                     | mac LLADDR               (% only with 'vf' %)
+                     | master DEVICE | nomaster
+                     | mtu MTU
+                     | multicast { on | off }
+                     | name NEWNAME
+                     | netns NAME
+                     | netns PID
+                     | promisc { on | off }
+                     | qos VLAN-QOS             (% only with 'vf' then 'vlan' %)
+                     | rate TXRATE              (% only with 'vf' %)
+                     | spoofchk { on | off }    (% only with 'vf' %)
+                     | trailers { on | off }
+                     | txqueuelen PACKETS
+                     | up                       (% not with 'down' %)
+                     | vf NUM
+                     | state { auto
+                             | disable
+                             | enable
+                             }                  (% only with 'vf' %)
+                     | vlan VLANID              (% only with 'vf' %)
+                     } ... ]
        ip link show [ { [ dev ] DEVICE
-                      | group DEVGROUP } ]
+                      | group DEVGROUP
+                      | up
+                      } ... ]
 
 
 VLANID := { 1..4095 }
-VLANID0 := { 0..4095 }
 VLAN-QOS := (unknown)
 
-LTYPE+ARGS := { can [ CAN_ARG ... ]
+LTYPE+ARGS := { bridge
+              | can [ CAN_ARG ... ]
               | dummy
+              | gre
+              | gretap
               | ifb
-              | macvlan [ MV_ARG ... ]
+              | ip6gre
+              | ip6gretap
+              | ip6tnl
+              | ipip
+              | ipoib
+              | macvlan [ MACVLAN_ARG ... ]
+              | macvtap
+              | sit
               | vcan
-              | veth [ VE_ARG ... ]
-              | vlan [ VL_ARG ... ] }
+              | veth [ VETH_ARG ... ]
+              | vlan [ VLAN_ARG ... ]
+              | vti
+              | vxlan
+              }
 
 CAN_ARG := { berr-reporting { on | off }
            | bitrate BITRATE
@@ -147,31 +262,33 @@ CAN_ARG := { berr-reporting { on | off }
            | phase-seg2 SEGNUM
            | prop-seg SEGNUM
            | restart
-           | restart-ms NUMBER                  #milliseconds
+           | restart-ms NUMBER                  (% milliseconds %)
            | sample-point SAMPLE-POINT
            | sjw { 1..4 }
            | tq NUMBER
-           | triple-sampling { on | off } }
+           | triple-sampling { on | off }
+           }
 
 BITRATE := { 1..1000000 }
 SEGNUM := { 1..8 }
 SAMPLE-POINT := { 0.000..0.999 }
 
-MV_ARG := mode { bridge
-               | private
-               | vepa }
+MACVLAN_ARG := mode { bridge
+                    | private
+                    | vepa
+                    }
 
-VE_ARG := peer [ VE_OPT ... ]
+VETH_ARG := peer [ VE_OPT ... ]
 VE_OPT := (unknown)
 
-VL_ARG := { egress-qos-map QOS-MAP ...
-          | gvrp { on | off }
-          | id VLANID                           #required
-          | ingress-qos-map QOS-MAP ...
-          | loose_binding { on | off }
-          | reorder_hdr { on | off } }
+VLAN_ARG := { egress-qos-map QOS-MAP ...
+            | gvrp { on | off }
+            | id VLANID                         (% required %)
+            | ingress-qos-map QOS-MAP ...
+            | loose_binding { on | off }
+            | reorder_hdr { on | off }
+            }
 QOS-MAP := FROM:TO
-
 FROM := 32bitNUMBER
 TO := 32bitNUMBER
 
@@ -179,23 +296,73 @@ TO := 32bitNUMBER
 maddr
 
 Usage: ip maddr { add
-                | del } MULTIADDR dev DEVICE
+                | del
+                } MULTIADDR dev DEVICE
        ip maddr show [ dev DEVICE ]
 
 ################################
 monitor
 
 Usage: ip monitor { all
-                  | OBJECT ... }
+                  | OBJECT ...
+                  } [ { file FILENAME
+                      | label
+                      } ...]
 
 (OBJECT is as per top-level)
+OBJECT := { address
+          | link
+          | mroute
+          | neigh
+          | netconf
+          | prefix
+          | route
+          }
 
 ################################
 mroute
 
-Usage: ip mroute show [ { PREFIX
+Usage: ip mroute show [ { [ to ] PREFIX
                         | from PREFIX
-                        | iif DEVICE } ... ]
+                        | iif DEVICE
+                        | table { all | TABLE_ID }
+                        } ... ]
+
+TABLE_ID := { default
+            | local
+            | main
+            | NUMBER
+            }
+
+################################
+mrule
+
+Usage: ip rule { list
+               | add
+               | del
+               | flush
+               } [ { from DPREFIX
+                   | fwmark FWMARK[/MASK]
+                   | goto NUMBER
+                   | iif STRING
+                   | not                        (% need to check whether this must go first? %)
+                   | oif STRING
+                   | pref NUMBER
+                   | prohibit
+                   | realms [SRCREALM/]DSTREALM
+                   | reject
+                   | suppress_ifgroup DEVGROUP
+                   | suppress_prefixlength NUMBER
+                   | table(lookup) TABLE_ID
+                   | to DPREFIX
+                   | tos TOS
+                   | unreachable
+                   } ... ]
+
+aliases:
+  show → list
+
+TABLE_ID (% as for 'ip mroute' %)
 
 ################################
 neigh
@@ -203,20 +370,45 @@ neigh
 Usage: ip neigh { add
                 | change
                 | del
-                | replace } { ADDR
-                            | lladdr LLADDR
-                            | nud NUDSTATE
-                            | proxy ADDR
-                            | dev DEVICE }
+                | replace
+                } { ADDR                        (% ADDR or 'proxy' required %)
+                  | dev DEVICE
+                  | lladdr LLADDR               (% not with 'proxy' %)
+                  | nud NUDSTATE                (% not with 'proxy' %)
+                  | proxy ADDR                  (% ADDR or 'proxy' required %)
+                  }
+
        ip neigh { flush
-                | show } [ { dev DEVICE
-                           | nud NUDSTATE
-                           | to PREFIX } ... ]
+                | show
+                } [ { dev DEVICE
+                    | nud NUDSTATE
+                    | to DPREFIX
+                    } ... ]
+
+aliases:
+  list → show
 
 NUDSTATE := { noarp
             | permanent
             | reachable
-            | stale }
+            | stale
+            | 0 | ONE_BIT
+            }
+
+################################
+netns
+
+Usage: ip netns { add NAME
+                | delete NAME
+                | exec NAME CMD ...
+                | identify PID
+                | list
+                | monitor
+                | pids NAME
+                }
+
+aliases:
+  show → list
 
 ################################
 ntable
@@ -230,7 +422,7 @@ Usage: ip ntable change [ { anycast_delay MSEC
                           | gc_stale MSEC
                           | locktime MSEC
                           | mcast_probes VAL
-                          | name NAME
+                          | name NAME           (% required %)
                           | proxy_delay MSEC
                           | proxy_queue LEN
                           | queue LEN
@@ -238,61 +430,78 @@ Usage: ip ntable change [ { anycast_delay MSEC
                           | thresh1 VAL
                           | thresh2 VAL
                           | thresh3 VAL
-                          | ucast_probes VAL } ... ]
+                          | ucast_probes VAL
+                          } ... ]
        ip ntable show [ { dev DEVICE
-                        | name NAME } .. ]
+                        | name NAME
+                        } ... ]
 
 ################################
 route
 
 Usage: ip route { flush
-                | list } [ { exact PREFIX
-                           | match PREFIX
-                           | proto RTPROTO
-                           | root PREFIX
-                           | scope SCOPE
-                           | table TABLE_ID+
-                           | type RTYPE } ... ]
-       ip route get ADDRESS [ { from ADDRESS
-                              | iif STRING
-                              | oif STRING
-                              | tos TOS } ... ]
+                | list
+                | save
+                } [ { exact DPREFIX
+                    | match DPREFIX
+                    | proto RTPROTO
+                    | root DPREFIX
+                    | scope SCOPE
+                    | table { all | TABLE_ID }
+                    | type RTYPE
+                    } ... ]
+       ip route restore
+       ip route showdump
+       ip route get [ { ADDRESS                 (% required %)
+                      | from ADDRESS
+                      | iif DEVICE
+                      | mark NUMBER
+                      | oif DEVICE
+                      | tos TOS
+                      } ... ]
        ip route { add
-                | del
-                | change
                 | append
+                | change
+                | del
+                | monitor
                 | replace
-                | monitor } [ { [ RTYPE ] PREFIX
-                              | advmss NUMBER
-                              | cwnd NUMBER
-                              | dev DEVICE
-                              | equalize @DEPRECATED@
-                              | hoplimit NUMBER
-                              | initcwnd NUMBER
-                              | initrwnd NUMBER
-                              | metric METRIC
-                              | mtu NUMBER
-                              | onlink
-                              | pervasive
-                              | proto RTPROTO
-                              | realms REALM
-                              | reordering NUMBER
-                              | rto_min TIME
-                              | rtt TIME
-                              | rttvar TIME
-                              | scope SCOPE
-                              | src ADDRESS
-                              | ssthresh NUMBER
-                              | table TABLE_ID+
-                              | tos TOS
-                              | via ADDRESS
-                              | weight NUMBER
-                              | window NUMBER } ... ]
-                            [ nexthop { dev DEVICE
-                                      | onlink
-                                      | pervasive
-                                      | via ADDRESS
-                                      | weight NUMBER } ... ] ...
+                } [ { [ RTYPE ] DPREFIX         (% required %)
+                    | advmss NUMBER
+                    | cwnd NUMBER
+                    | dev DEVICE
+                    | equalize                  (% @DEPRECATED@ %)
+                    | hoplimit NUMBER
+                    | initcwnd NUMBER
+                    | initrwnd NUMBER
+                    | metric METRIC
+                    | mtu NUMBER
+                    | onlink
+                    | pervasive
+                    | proto RTPROTO
+                    | quickack BOOL
+                    | realms REALM
+                    | reordering NUMBER
+                    | rto_min TIME
+                    | rtt TIME
+                    | rttvar TIME
+                    | scope SCOPE
+                    | src ADDRESS
+                    | ssthresh NUMBER
+                    | table TABLE_ID
+                    | tos TOS
+                    | via ADDRESS
+                    | weight NUMBER
+                    | window NUMBER
+                    } ... ]
+                  [ nexthop { dev DEVICE
+                            | onlink
+                            | pervasive
+                            | via ADDRESS
+                            | weight NUMBER
+                            } ... ] ...
+
+aliases:
+  show → list
 
 RTYPE := { blackhole
          | broadcast
@@ -302,61 +511,77 @@ RTYPE := { blackhole
          | prohibit
          | throw
          | unicast
-         | unreachable }
-
-TABLE_ID+ := { all
-             | default
-             | local
-             | main
-             | NUMBER }
-
+         | unreachable
+         }
+TABLE_ID (% as for 'ip mroute' %)
 SCOPE := { global
          | host
          | link
-         | NUMBER }
-
+         | NUMBER
+         }
 RTPROTO := { boot
            | kernel
            | static
-           | NUMBER }
-
+           | NUMBER
+           }
+BOOL := { 1 | 0 }
 TIME := NUMBER{s|ms|us|ns|j}
-
-# defined but not used in 'ip route help'
-#MP_ALGO := { drr
-#           | random
-#           | rr
-#           | wrandom }
 
 ################################
 rule
 
-Usage: ip rule { list
-               | add
+Usage: ip rule list
+Usage: ip rule { add
                | del
-               | flush } [ { dev DEVICE         #deprecated
-                           | from PREFIX
-                           | fwmark FWMARK[/MASK]
-                           | not
-                           | pref NUMBER
-                           | prio NUMBER        #deprecated
-                           | to PREFIX
-                           | tos TOS } ... ]
-                         [ ACTION ... ]
+               | flush
+               } [ { not                        (% check whether this has to be first %)
+                   | from DPREFIX
+                   | fwmark FWMARK[/MASK]
+                   | goto NUMBER                (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   | iif DEVICE
+                   | oif DEVICE
+                   | pref NUMBER
+                   | prohibit                   (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   | realms REALM_PAIR          (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   | reject                     (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   | suppress_ifgroup DEVGROUP
+                   | suppress_prefixlength NUMBER
+                   | table TABLE_ID             (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   | to DPREFIX
+                   | tos TOS
+                   | unreachable                (% exactly one of 'goto', 'prohibit', 'realms', 'reject', 'table' or 'unreachable' %)
+                   } ... ]
 
-ACTION := { goto NUMBER
-          | prohibit
-          | realms REALMPAIR
-          | reject
-          | table TABLE_ID
-          | unreachable }
+aliases:
+  show → list
+  prio → pref
+  dev  → iif
 
-REALMPAIR := REALM[/REALM]
+REALM_PAIR := [REALM(SRC)/]REALM(DEST)
+TABLE_ID (% as for 'ip mroute' %)
 
-TABLE_ID := { default
-            | local
-            | main
-            | NUMBER }
+################################
+tcp_metrics
+
+Usage: ip tcp_metrics/tcpmetrics { COMMAND | help }
+       ip tcp_metrics { delete
+                      | flush
+                      | show
+                      } [ [ address ] PREFIX ]
+
+aliases:
+  list → show
+
+################################
+token
+
+Usage: ip token { list
+                | get
+                | set
+                } [ TOKEN ] [ dev DEVICE ]
+
+aliases:
+  show → list
 
 ################################
 tunnel
@@ -366,32 +591,40 @@ Usage: ip tunnel { 6rd
                  | change
                  | del
                  | prl
-                 | show } [ { NAME
-                            | 6rd-prefix ADDR-or-any
-                            | 6rd-relay_prefix ADDR-or-any
-                            | 6rd-reset
-                            | dev PHYS_DEV
-                            | icsum        
-                            | ikey KEY     
-                            | iseq         
-                            | local ADDR-or-any
-                            | mode { gre | ipip | isatap | sit }
-                            | nopmtudisc
-                            | ocsum
-                            | okey KEY
-                            | oseq
-                            | pmtudisc
-                            | prl-default ADDR-or-any
-                            | prl-delete ADDR-or-any
-                            | prl-nodefault ADDR-or-any
-                            | remote ADDR-or-any
-                            | tos TOS
-                            | ttl TTL } ... ]
+                 | show
+                 } [ { DEVICE
+                     | 6rd-prefix ANY_ADDR
+                     | 6rd-relay_prefix ANY_ADDR
+                     | 6rd-reset
+                     | dev PHYS_DEV
+                     | icsum
+                     | ikey KEY
+                     | iseq
+                     | local ANY_ADDR
+                     | mode { gre
+                            | ipip
+                            | isatap
+                            | sit
+                            | vti
+                            }
+                     | nopmtudisc
+                     | ocsum
+                     | okey KEY
+                     | oseq
+                     | pmtudisc
+                     | prl-default ANY_ADDR
+                     | prl-delete ANY_ADDR
+                     | prl-nodefault ANY_ADDR
+                     | remote ANY_ADDR
+                     | tos TOS
+                     | ttl TTL
+                     } ... ]
 
-ADDR-or-any := { ADDR
-               | any }
-TOS  := { NUMBER
-        | inherit }
+TOS  := { STRING
+        | 00..ff
+        | inherit
+        | inherit/STRING
+        | inherit/00..ff }
 TTL  := { 1..255
         | inherit }
 KEY  := { DOTTED_QUAD
@@ -401,16 +634,16 @@ KEY  := { DOTTED_QUAD
 tuntap
 
 Usage: ip tuntap { add
-                 | del } [ { dev PHYS_DEV
-                           | mode { tun | tap }
-                           | user USER
-                           | group GROUP
-                           | one_queue
-                           | pi
-                           | vnet_hdr } ... ]
-
-USER  := { USERNAME | UID }
-GROUP := { GROUPNAME | GID }
+                 | del
+                 } [ { dev PHYS_DEV
+                     | group USERGROUP
+                     | mode { tun | tap }
+                     | multi_queue              (% not with 'one_queue' %)
+                     | one_queue                (% not with 'multi_queue' %)
+                     | pi
+                     | user USER
+                     | vnet_hdr
+                     } ... ]
 
 ################################
 xfrm
