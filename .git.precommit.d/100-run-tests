@@ -1,0 +1,22 @@
+#!/bin/bash
+
+PATH=/bin:/usr/bin
+
+export PERL5LIB="$PWD"
+
+declare -i num_errors=0
+
+for t in t/* */t/* ; do
+    [[ -s $t ]] || continue
+    if
+        case $t in
+        *.sh) sh "$t" ;;
+        *.pl) perl "$t" ;;
+        *) echo "Unknown filetype" ; false ;;
+        esac
+    then printf '\e[44;32;1mOK\e[m   %s\n'       "$t"
+    else printf '\e[41;33;1mFAIL\e[m %s (%#x)\n' "$t" $? ; ((++num_errors))
+    fi
+done
+
+exit $((num_errors==0 ? 0 : 1))
