@@ -6,7 +6,9 @@ export PERL5LIB="$PWD"
 
 declare -i num_errors=0
 
-for t in t/* */t/* ; do
+shopt -s globstar   # find any 't' directory
+
+for t in **/t/* ; do
     [[ -s $t ]] || continue
     if
         case $t in
