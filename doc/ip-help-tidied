@@ -6,7 +6,7 @@ ip utility, iproute2-ss131122
 
 Usage: ip IPOPTIONS OBJECT { COMMAND | help }
        ip [ -force ] -batch { FILENAME | - }
-OBJECT := { addr
+OBJECT := { address
           | addrlabel
           | l2tp
           | link
@@ -90,52 +90,52 @@ USERGROUP := { GID
 ################################
 addr
 
-Usage: ip addr { add
-               | change
-               | replace
-               } [ { anycast ADDR
-                   | broadcast ADDR
-                   | dev DEVICE                 (% required %)
-                   | home
-                   | label DEVICE:STRING
-                   | nodad
-                   | peer PREFIX                (% not with PREFIX %)
-                   | preferred_lft LIFETIME
-                   | scope SCOPE
-                   | valid_lft LIFETIME
-                   | ADDR                       (% not with PREFIX %)
-                   | PREFIX                     (% not with ADDR %)
-                   } ... ]
-       ip addr del [ { anycast ADDR
-                     | broadcast ADDR
-                     | dev DEVICE               (% required %)
-                     | label STRING
-                     | peer PREFIX              (% not with PREFIX %)
-                     | scope SCOPE
-                     | ADDR                     (% not with PREFIX %)
-                     | PREFIX                   (% not with ADDR %)
-                     } ... ]
-       ip addr { flush
-               | save
-               | show
-               } [ { dadfailed
-                   | deprecated
-                   | dev DEVICE
-                   | dynamic
-                   | home
-                   | label PATTERN
-                   | nodad
-                   | permanent
-                   | primary
-                   | scope SCOPE
-                   | secondary
-                   | temporary
-                   | tentative
-                   | to PREFIX
-                   | up
-                   } ... ]
-       ip addr { showdump
-               | restore }
+Usage: ip address { add
+                  | change
+                  | replace
+                  } [ { anycast ADDR
+                      | broadcast ADDR
+                      | dev DEVICE                 (% required %)
+                      | home
+                      | label DEVICE:STRING
+                      | nodad
+                      | peer PREFIX                (% not with PREFIX %)
+                      | preferred_lft LIFETIME
+                      | scope SCOPE
+                      | valid_lft LIFETIME
+                      | ADDR                       (% not with PREFIX %)
+                      | PREFIX                     (% not with ADDR %)
+                      } ... ]
+       ip address del [ { anycast ADDR
+                        | broadcast ADDR
+                        | dev DEVICE               (% required %)
+                        | label STRING
+                        | peer PREFIX              (% not with PREFIX %)
+                        | scope SCOPE
+                        | ADDR                     (% not with PREFIX %)
+                        | PREFIX                   (% not with ADDR %)
+                        } ... ]
+       ip address { flush
+                  | save
+                  | show
+                  } [ { dadfailed
+                      | deprecated
+                      | dev DEVICE
+                      | dynamic
+                      | home
+                      | label PATTERN
+                      | nodad
+                      | permanent
+                      | primary
+                      | scope SCOPE
+                      | secondary
+                      | temporary
+                      | tentative
+                      | to PREFIX
+                      | up
+                      } ... ]
+       ip address { showdump
+                  | restore }
 
 aliases:
   list → show
