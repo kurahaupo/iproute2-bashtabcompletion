@@ -48,21 +48,31 @@ IPOPTIONS := [ { -0
 
 ################################
 
-ADDR := { IP4_ADDR | IP6_ADDR }
+ADDR := { IP4_ADDR
+        | IP6_ADDR }
 
-ANY_ADDR := { ADDR
-            | any }
+ANY_ADDR := { any
+            | ADDR }
 
 DEVICE := STRING
 
-DPREFIX := { PREFIX | default }
+DPREFIX := { default
+           | PREFIX }
 
 LIFETIME := { forever
             | SECONDS }
 
-LLADDR := { HH:HH:HH:HH:HH:HH | HH:HH:HH:HH:HH:HH:HH:HH }
+LLADDR := { HH:HH:HH:HH:HH:HH
+          | HH:HH:HH:HH:HH:HH:HH:HH }
 
-ONE_BIT := { 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 }
+ONE_BIT := { 1
+           | 2
+           | 4
+           | 8
+           | 16
+           | 32
+           | 64
+           | 128 }
 
 PREFIX := ADDR/NUMBER
 
@@ -71,9 +81,11 @@ SCOPE := { global
          | link
          | NUMBER }
 
-USER  := { USERNAME | UID }
+USER  := { UID
+         | USERNAME }
 
-USERGROUP := { GROUPNAME | GID }
+USERGROUP := { GID
+             | GROUPNAME }
 
 ################################
 addr
@@ -81,9 +93,7 @@ addr
 Usage: ip addr { add
                | change
                | replace
-               } [ { ADDR                       (% not with PREFIX %)
-                   | PREFIX                     (% not with ADDR %)
-                   | anycast ADDR
+               } [ { anycast ADDR
                    | broadcast ADDR
                    | dev DEVICE                 (% required %)
                    | home
@@ -93,15 +103,17 @@ Usage: ip addr { add
                    | preferred_lft LIFETIME
                    | scope SCOPE
                    | valid_lft LIFETIME
+                   | ADDR                       (% not with PREFIX %)
+                   | PREFIX                     (% not with ADDR %)
                    } ... ]
-       ip addr del [ { ADDR                     (% not with PREFIX %)
-                     | PREFIX                   (% not with ADDR %)
-                     | anycast ADDR
+       ip addr del [ { anycast ADDR
                      | broadcast ADDR
                      | dev DEVICE               (% required %)
                      | label STRING
                      | peer PREFIX              (% not with PREFIX %)
                      | scope SCOPE
+                     | ADDR                     (% not with PREFIX %)
+                     | PREFIX                   (% not with ADDR %)
                      } ... ]
        ip addr { flush
                | save
@@ -166,16 +178,24 @@ Usage: ip l2tp add session [ { cookie HEXSTR
                              | tunnel_id ID
                              } ... ]
        ip l2tp del tunnel tunnel_id ID
-       ip l2tp del session { tunnel_id ID | session_id ID } ...                                                            (% both required %)
+       ip l2tp del session { session_id ID
+                           | tunnel_id ID
+                           } ...                (% both required %)
        ip l2tp show tunnel [ tunnel_id ID ]
-       ip l2tp show session [ { tunnel_id ID | session_id ID } ... ]
+       ip l2tp show session [ { tunnel_id ID
+                              | session_id ID } ... ]
 
 NAME   := STRING
-ANY_ADDR   := { ADDR | any }
+ANY_ADDR   := { any
+              | ADDR }
 PORT   := { 0..65535 }
 ID     := { 1..4294967295 }
-HEXSTR := { 8 or 16 hex digits (4 / 8 bytes) }
-L2SPEC := { none | default }
+HEXSTR := { HHHHHHHH
+          | HHHHHHHHHHHHHHHH
+          }                                     (% 8 or 16 hex digits %)
+L2SPEC := { default
+          | none
+          }
 
 ################################
 link
@@ -184,7 +204,7 @@ Usage: ip link add [ { address LLADDR
                      | broadcast LLADDR
                      | link DEVICE              (% required %)
                      | mtu MTU
-                     | [ name ] NAME            (% required %)
+                     | [ name ] NEWNAME         (% required %)
                      | numrxqueues QUEUE_COUNT
                      | numtxqueues QUEUE_COUNT
                      | txqueuelen PACKETS
@@ -201,7 +221,7 @@ Usage: ip link add [ { address LLADDR
                      | [ dev ] DEVICE           (% 'dev' or 'group' required %)
                      | down                     (% not with 'up' %)
                      | dynamic { on | off }
-                     | group DEVGROUP           (% dev or group required %)
+                     | group DEVGROUP           (% 'dev' or 'group' required %)
                      | mac LLADDR               (% only with 'vf' %)
                      | master DEVICE | nomaster
                      | mtu MTU
@@ -213,21 +233,19 @@ Usage: ip link add [ { address LLADDR
                      | qos VLAN-QOS             (% only with 'vf' then 'vlan' %)
                      | rate TXRATE              (% only with 'vf' %)
                      | spoofchk { on | off }    (% only with 'vf' %)
+                     | state { auto
+                             | disable
+                             | enable }         (% only with 'vf' %)
                      | trailers { on | off }
                      | txqueuelen PACKETS
                      | up                       (% not with 'down' %)
                      | vf NUM
-                     | state { auto
-                             | disable
-                             | enable
-                             }                  (% only with 'vf' %)
                      | vlan VLANID              (% only with 'vf' %)
                      } ... ]
        ip link show [ { [ dev ] DEVICE
                       | group DEVGROUP
                       | up
                       } ... ]
-
 
 VLANID := { 1..4095 }
 VLAN-QOS := (unknown)
@@ -371,11 +389,11 @@ Usage: ip neigh { add
                 | change
                 | del
                 | replace
-                } { ADDR                        (% ADDR or 'proxy' required %)
-                  | dev DEVICE
+                } { dev DEVICE
                   | lladdr LLADDR               (% not with 'proxy' %)
                   | nud NUDSTATE                (% not with 'proxy' %)
                   | proxy ADDR                  (% ADDR or 'proxy' required %)
+                  | ADDR                        (% ADDR or 'proxy' required %)
                   }
 
        ip neigh { flush
@@ -447,17 +465,18 @@ Usage: ip route { flush
                     | proto RTPROTO
                     | root DPREFIX
                     | scope SCOPE
-                    | table { all | TABLE_ID }
+                    | table { all
+                            | TABLE_ID }
                     | type RTYPE
                     } ... ]
        ip route restore
        ip route showdump
-       ip route get [ { ADDRESS                 (% required %)
-                      | from ADDRESS
+       ip route get [ { from ADDRESS
                       | iif DEVICE
                       | mark NUMBER
                       | oif DEVICE
                       | tos TOS
+                      | ADDRESS                 (% required %)
                       } ... ]
        ip route { add
                 | append
@@ -465,8 +484,7 @@ Usage: ip route { flush
                 | del
                 | monitor
                 | replace
-                } [ { [ RTYPE ] DPREFIX         (% required %)
-                    | advmss NUMBER
+                } [ { advmss NUMBER
                     | cwnd NUMBER
                     | dev DEVICE
                     | equalize                  (% @DEPRECATED@ %)
@@ -492,6 +510,7 @@ Usage: ip route { flush
                     | via ADDRESS
                     | weight NUMBER
                     | window NUMBER
+                    | [ RTYPE ] DPREFIX         (% required %)
                     } ... ]
                   [ nexthop { dev DEVICE
                             | onlink
@@ -575,8 +594,8 @@ aliases:
 ################################
 token
 
-Usage: ip token { list
-                | get
+Usage: ip token { get
+                | list
                 | set
                 } [ TOKEN ] [ dev DEVICE ]
 
