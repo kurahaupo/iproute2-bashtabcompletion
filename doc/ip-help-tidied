@@ -267,12 +267,12 @@ Usage: ip link add {
                    | numrxqueues QUEUE_COUNT
                    | numtxqueues QUEUE_COUNT
                    | txqueuelen PACKETS
-                   | type LTYPE+ARGS            (% required %)
+                   | type LTYPE+ARGS            (% required; see separate sections for ARGS %)
                    } ...
 
        ip link delete {
                       | [ dev ] DEVICE          (% required %)
-                      | type LTYPE+ARGS
+                      | type LTYPE+ARGS         (% see separate sections for ARGS %)
                       } ...
 
        ip link set {
