@@ -121,12 +121,12 @@ SCOPE := {
 
 USER  := {
          | UID
-         | USERNAME
+         | USERNAME                             (% getpwent(): getent passwd or cat /etc/passwd %)
          }
 
 USERGROUP := {
              | GID
-             | GROUPNAME
+             | GROUPNAME                        (% getgrent();: getent group or cat /etc/group %)
              }
 
 ################################
