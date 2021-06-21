@@ -789,8 +789,8 @@ Usage: ip tuntap {
                             | tap
                             | tun
                             }
-                     | multi_queue              (% not with 'one_queue' %)
-                     | one_queue                (% not with 'multi_queue' %)
+                     | multi_queue              (% at most one of 'one_queue' or 'multi_queue' %)
+                     | one_queue                (% at most one of 'one_queue' or 'multi_queue' %)
                      | pi
                      | user USER
                      | vnet_hdr
