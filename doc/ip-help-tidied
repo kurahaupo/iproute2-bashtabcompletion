@@ -731,7 +731,7 @@ Usage: ip tunnel {
                  | prl
                  | show
                  } [ {
-                     | DEVICE
+                     | TUNDEV
                      | 6rd-prefix ANY_ADDR
                      | 6rd-relay_prefix ANY_ADDR
                      | 6rd-reset
@@ -760,6 +760,7 @@ Usage: ip tunnel {
                      | ttl TTL
                      } ... ]
 
+TUNDEV := STRING                                (% your choice of name %)
 TOS  := {
         | STRING
         | 00..ff
