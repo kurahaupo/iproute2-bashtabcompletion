@@ -269,10 +269,12 @@ Usage: ip link add {
                    | txqueuelen PACKETS
                    | type LTYPE+ARGS            (% required %)
                    } ...
+
        ip link delete {
                       | [ dev ] DEVICE          (% required %)
                       | type LTYPE+ARGS
                       } ...
+
        ip link set {
                    | address LLADDR
                    | alias NAME
@@ -308,6 +310,7 @@ Usage: ip link add {
                    | vf NUM
                    | vlan VLANID                (% only with 'vf' %)
                    } ...
+
        ip link show [ {
                       | [ dev ] DEVICE
                       | group DEVGROUP
