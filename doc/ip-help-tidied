@@ -288,8 +288,10 @@ Usage: ip link add {
                    | mtu MTU
                    | multicast ON_OFF
                    | name NEWNAME
-                   | netns NAME
-                   | netns PID
+                   | netns {
+                           | NAME
+                           | PID
+                           }
                    | promisc ON_OFF
                    | qos VLAN-QOS               (% only with 'vf' then 'vlan' %)
                    | rate TXRATE                (% only with 'vf' %)
