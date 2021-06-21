@@ -424,10 +424,7 @@ ip mroute help
 Usage: ip mroute show [ {
                         | from PREFIX
                         | iif DEVICE
-                        | table {
-                                | TABLE_ID
-                                | all
-                                }
+                        | table TABLE_ID+ALL
                         | [ to ] PREFIX
                         } ... ]
 
@@ -437,6 +434,10 @@ TABLE_ID := {
             | local
             | main
             }
+TABLE_ID+ALL := {
+                | TABLE_ID
+                | all
+                }
 
 ################################
 ip mrule help
