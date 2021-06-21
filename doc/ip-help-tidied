@@ -134,7 +134,7 @@ Usage: ip address                               (% defaults to 'show' %)
                   | replace
                   } [ {
                       | ADDR                    (% exactly one of ADDR or PREFIX required %)
-                      | PREFIX                  (% exactly one of ADDR or PREFIX required %)
+                      | PREFIX                  (% exactly one of ADDR or PREFIX required; not with 'peer' %)
                       | anycast ADDR
                       | broadcast ADDR
                       | dev DEVICE              (% required %)
@@ -312,8 +312,8 @@ Usage: ip link add {
                    } ...
 
        ip link show [ {
-                      | [ dev ] DEVICE
-                      | group DEVGROUP
+                      | [ dev ] DEVICE          (% at most one of 'dev' or 'group' %)
+                      | group DEVGROUP          (% at most one of 'dev' or 'group' %)
                       | up
                       } ... ]
 
