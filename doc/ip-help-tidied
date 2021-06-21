@@ -422,10 +422,10 @@ OBJECT := {
 ip mroute help
 
 Usage: ip mroute show [ {
-                        | from PREFIX
+                        | from DPREFIX
                         | iif DEVICE
                         | table TABLE_ID+ALL
-                        | [ to ] PREFIX
+                        | [ to ] DPREFIX
                         } ... ]
 
 TABLE_ID := {
