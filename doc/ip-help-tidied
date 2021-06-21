@@ -475,11 +475,11 @@ Usage: ip neigh {
                 | del
                 | replace
                 } {
-                  | ADDR                        (% ADDR or 'proxy' required %)
+                  | ADDR                        (% exactly one of ADDR or 'proxy' required %)
                   | dev DEVICE
                   | lladdr LLADDR               (% not with 'proxy' %)
                   | nud NUDSTATE                (% not with 'proxy' %)
-                  | proxy ADDR                  (% ADDR or 'proxy' required %)
+                  | proxy ADDR                  (% exactly one of ADDR or 'proxy' required %)
                   }
 
        ip neigh {
