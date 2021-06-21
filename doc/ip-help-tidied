@@ -10,7 +10,7 @@ OBJECT := { address
           | addrlabel
           | l2tp
           | link
-          | maddr
+          | maddress
           | monitor
           | mroute
           | mrule
@@ -38,7 +38,7 @@ IPOPTIONS := [ { -0
                          | ipx
                          | link }
              | -I
-             | -l[oops] { maximum-addr-flush-attempts }
+             | -l[oops] { maximum-address-flush-attempts }
              | -o[neline]
              | -r[esolve]
              | -rc[vbuf] [size]
@@ -88,7 +88,7 @@ USERGROUP := { GID
              | GROUPNAME }
 
 ################################
-addr
+address
 
 Usage: ip address { add
                   | change
@@ -311,12 +311,12 @@ FROM := 32bitNUMBER
 TO := 32bitNUMBER
 
 ################################
-maddr
+maddress
 
-Usage: ip maddr { add
-                | del
-                } MULTIADDR dev DEVICE
-       ip maddr show [ dev DEVICE ]
+Usage: ip maddress { add
+                   | del
+                   } MULTIADDR dev DEVICE
+       ip maddress show [ dev DEVICE ]
 
 ################################
 monitor
