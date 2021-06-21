@@ -111,25 +111,25 @@ Usage: ip address { add
                   | replace
                   } [ { anycast ADDR
                       | broadcast ADDR
-                      | dev DEVICE                 (% required %)
+                      | dev DEVICE              (% required %)
                       | home
                       | label DEVICE:STRING
                       | nodad
-                      | peer PREFIX                (% not with PREFIX %)
+                      | peer PREFIX             (% not with PREFIX %)
                       | preferred_lft LIFETIME
                       | scope SCOPE
                       | valid_lft LIFETIME
-                      | ADDR                       (% not with PREFIX %)
-                      | PREFIX                     (% not with ADDR %)
+                      | ADDR                    (% not with PREFIX %)
+                      | PREFIX                  (% not with ADDR %)
                       } ... ]
        ip address del [ { anycast ADDR
                         | broadcast ADDR
-                        | dev DEVICE               (% required %)
+                        | dev DEVICE            (% required %)
                         | label STRING
-                        | peer PREFIX              (% not with PREFIX %)
+                        | peer PREFIX           (% not with PREFIX %)
                         | scope SCOPE
-                        | ADDR                     (% not with PREFIX %)
-                        | PREFIX                   (% not with ADDR %)
+                        | ADDR                  (% not with PREFIX %)
+                        | PREFIX                (% not with ADDR %)
                         } ... ]
        ip address { flush
                   | save
