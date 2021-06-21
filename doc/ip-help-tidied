@@ -4,9 +4,9 @@ ip utility, iproute2-ss131122
 
 ################################
 
-Usage: ip IPOPTIONS OBJECT { COMMAND
-                           | help
-                           }
+Usage: ip [ IPOPTION ... ] OBJECT { COMMAND
+                                  | help
+                                  }
        ip [ -force ] -batch { FILENAME
                             | -
                             }
@@ -29,29 +29,29 @@ OBJECT := { address
           | tuntap
           | xfrm
           }
-IPOPTIONS := [ { -0
-               | -4
-               | -6
-               | -B
-               | -b[atch] [filename]
-               | -D
-               | -d[etails]
-               | -f[amily] { bridge
-                           | dnet
-                           | inet
-                           | inet6
-                           | ipx
-                           | link
-                           }
-               | -I
-               | -l[oops] MAXIMUM_ADDRESS_FLUSH_ATTEMPTS
-               | -o[neline]
-               | -r[esolve]
-               | -rc[vbuf] [size]
-               | -s[tatistics]
-               | -t[imestamp]
-               | -V[ersion]
-               } ... ]
+IPOPTION := { -0
+            | -4
+            | -6
+            | -B
+            | -b[atch] [filename]
+            | -D
+            | -d[etails]
+            | -f[amily] { bridge
+                        | dnet
+                        | inet
+                        | inet6
+                        | ipx
+                        | link
+                        }
+            | -I
+            | -l[oops] MAXIMUM_ADDRESS_FLUSH_ATTEMPTS
+            | -o[neline]
+            | -r[esolve]
+            | -rc[vbuf] [size]
+            | -s[tatistics]
+            | -t[imestamp]
+            | -V[ersion]
+            }
 
 ################################
 
