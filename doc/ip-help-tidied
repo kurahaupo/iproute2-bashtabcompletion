@@ -757,7 +757,7 @@ Usage: ip tunnel {
                      | prl-nodefault ANY_ADDR
                      | remote ANY_ADDR
                      | tos TOS
-                     | ttl TTL
+                     | ttl TTLI
                      } ... ]
 
 TUNDEV := STRING                                (% your choice of name %)
@@ -768,7 +768,7 @@ TOS  := {
         | inherit/STRING
         | inherit/00..ff
         }
-TTL  := {
+TTLI  := {
         | 1..255
         | inherit
         }
