@@ -258,53 +258,53 @@ L2SPEC := {
 ################################
 ip link help
 
-Usage: ip link add [ {
-                     | address LLADDR
-                     | broadcast LLADDR
-                     | link DEVICE              (% required %)
-                     | mtu MTU
-                     | [ name ] NEWNAME         (% required %)
-                     | numrxqueues QUEUE_COUNT
-                     | numtxqueues QUEUE_COUNT
-                     | txqueuelen PACKETS
-                     | type LTYPE+ARGS          (% required %)
-                     } ... ]
-       ip link delete [ {
-                        | [ dev ] DEVICE        (% required %)
-                        | type LTYPE+ARGS
-                        } ... ]
-       ip link set [ {
-                     | address LLADDR
-                     | alias NAME
-                     | allmulticast ON_OFF
-                     | arp ON_OFF
-                     | broadcast LLADDR
-                     | [ dev ] DEVICE           (% 'dev' or 'group' required %)
-                     | down                     (% not with 'up' %)
-                     | dynamic ON_OFF
-                     | group DEVGROUP           (% 'dev' or 'group' required %)
-                     | mac LLADDR               (% only with 'vf' %)
-                     | master DEVICE | nomaster
-                     | mtu MTU
-                     | multicast ON_OFF
-                     | name NEWNAME
-                     | netns NAME
-                     | netns PID
-                     | promisc ON_OFF
-                     | qos VLAN-QOS             (% only with 'vf' then 'vlan' %)
-                     | rate TXRATE              (% only with 'vf' %)
-                     | spoofchk ON_OFF          (% only with 'vf' %)
-                     | state {
-                             | auto
-                             | disable
-                             | enable
-                             }                  (% only with 'vf' %)
-                     | trailers ON_OFF
-                     | txqueuelen PACKETS
-                     | up                       (% not with 'down' %)
-                     | vf NUM
-                     | vlan VLANID              (% only with 'vf' %)
-                     } ... ]
+Usage: ip link add {
+                   | address LLADDR
+                   | broadcast LLADDR
+                   | link DEVICE                (% required %)
+                   | mtu MTU
+                   | [ name ] NEWNAME           (% required %)
+                   | numrxqueues QUEUE_COUNT
+                   | numtxqueues QUEUE_COUNT
+                   | txqueuelen PACKETS
+                   | type LTYPE+ARGS            (% required %)
+                   } ...
+       ip link delete {
+                      | [ dev ] DEVICE          (% required %)
+                      | type LTYPE+ARGS
+                      } ...
+       ip link set {
+                   | address LLADDR
+                   | alias NAME
+                   | allmulticast ON_OFF
+                   | arp ON_OFF
+                   | broadcast LLADDR
+                   | [ dev ] DEVICE             (% 'dev' or 'group' required %)
+                   | down                       (% not with 'up' %)
+                   | dynamic ON_OFF
+                   | group DEVGROUP             (% 'dev' or 'group' required %)
+                   | mac LLADDR                 (% only with 'vf' %)
+                   | master DEVICE | nomaster
+                   | mtu MTU
+                   | multicast ON_OFF
+                   | name NEWNAME
+                   | netns NAME
+                   | netns PID
+                   | promisc ON_OFF
+                   | qos VLAN-QOS               (% only with 'vf' then 'vlan' %)
+                   | rate TXRATE                (% only with 'vf' %)
+                   | spoofchk ON_OFF            (% only with 'vf' %)
+                   | state {
+                           | auto
+                           | disable
+                           | enable
+                           }                    (% only with 'vf' %)
+                   | trailers ON_OFF
+                   | txqueuelen PACKETS
+                   | up                         (% not with 'down' %)
+                   | vf NUM
+                   | vlan VLANID                (% only with 'vf' %)
+                   } ...
        ip link show [ {
                       | [ dev ] DEVICE
                       | group DEVGROUP
@@ -516,26 +516,26 @@ aliases:
 ################################
 ip ntable help
 
-Usage: ip ntable change [ {
-                          | anycast_delay MSEC
-                          | app_probs VAL
-                          | base_reachable MSEC
-                          | delay_probe MSEC
-                          | dev DEVICE
-                          | gc_int MSEC
-                          | gc_stale MSEC
-                          | locktime MSEC
-                          | mcast_probes VAL
-                          | name NAME           (% required %)
-                          | proxy_delay MSEC
-                          | proxy_queue LEN
-                          | queue LEN
-                          | retrans MSEC
-                          | thresh1 VAL
-                          | thresh2 VAL
-                          | thresh3 VAL
-                          | ucast_probes VAL
-                          } ... ]
+Usage: ip ntable change {
+                        | anycast_delay MSEC
+                        | app_probs VAL
+                        | base_reachable MSEC
+                        | delay_probe MSEC
+                        | dev DEVICE
+                        | gc_int MSEC
+                        | gc_stale MSEC
+                        | locktime MSEC
+                        | mcast_probes VAL
+                        | name NAME           (% required %)
+                        | proxy_delay MSEC
+                        | proxy_queue LEN
+                        | queue LEN
+                        | retrans MSEC
+                        | thresh1 VAL
+                        | thresh2 VAL
+                        | thresh3 VAL
+                        | ucast_probes VAL
+                        } ...
        ip ntable show [ {
                         | dev DEVICE
                         | name NAME
