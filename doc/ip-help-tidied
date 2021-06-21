@@ -94,6 +94,8 @@ ON_OFF := {
           | on
           }
 
+(% ONE_BIT includes any representation of the integer powers of two between 1
+ % and 128, including octal and hexadecimal, such as 0x00001 or 00200. %)
 ONE_BIT := {
            | 1
            | 2
