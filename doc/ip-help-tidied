@@ -1,8 +1,9 @@
--Version
+ip -Version help
 
 ip utility, iproute2-ss131122
 
 ################################
+ip  help
 
 Usage: ip [ IPOPTION ... ] OBJECT {
                                   | COMMAND
@@ -59,6 +60,7 @@ IPOPTION := {
             }
 
 ################################
+Shared non-terminals
 
 ADDR := {
         | IP4_ADDR
@@ -118,7 +120,7 @@ USERGROUP := {
              }
 
 ################################
-address
+ip address help
 
 Usage: ip address                               (% defaults to 'show' %)
        ip address {
@@ -179,7 +181,7 @@ aliases:
   list → show
 
 ################################
-addrlabel
+ip addrlabel help
 
 Usage: ip addrlabel                             (% defaults to 'list' %)
        ip addrlabel {
@@ -197,7 +199,7 @@ aliases:
   show → list
 
 ################################
-l2tp
+ip l2tp help
 
 Usage: ip l2tp add tunnel [ { encap {
                                     | ip
@@ -249,7 +251,7 @@ L2SPEC := {
           }
 
 ################################
-link
+ip link help
 
 Usage: ip link add [ {
                      | address LLADDR
@@ -323,7 +325,7 @@ Usage: ip link add [ {
                       } ... ]
 
 VLANID := { 1..4095 }
-VLAN-QOS := (unknown)
+VLAN-QOS := (% unknown %)
 
 LTYPE+ARGS := {
               | bridge
@@ -413,7 +415,7 @@ FROM := 32bitNUMBER
 TO := 32bitNUMBER
 
 ################################
-maddress
+ip maddress help
 
 Usage: ip maddress {
                    | add
@@ -422,7 +424,7 @@ Usage: ip maddress {
        ip maddress show [ dev DEVICE ]
 
 ################################
-monitor
+ip monitor help
 
 Usage: ip monitor {
                   | OBJECT ...
@@ -444,7 +446,7 @@ OBJECT := {
           }
 
 ################################
-mroute
+ip mroute help
 
 Usage: ip mroute show [ {
                         | from PREFIX
@@ -464,7 +466,7 @@ TABLE_ID := {
             }
 
 ################################
-mrule
+ip mrule help
 
 Usage: ip rule {
                | add
@@ -496,7 +498,7 @@ aliases:
 TABLE_ID (% as for 'ip mroute' %)
 
 ################################
-neigh
+ip neigh help
 
 Usage: ip neigh {
                 | add
@@ -533,7 +535,7 @@ NUDSTATE := {
             }
 
 ################################
-netns
+ip netns help
 
 Usage: ip netns {
                 | add NAME
@@ -549,7 +551,7 @@ aliases:
   show → list
 
 ################################
-ntable
+ip ntable help
 
 Usage: ip ntable change [ {
                           | anycast_delay MSEC
@@ -577,7 +579,7 @@ Usage: ip ntable change [ {
                         } ... ]
 
 ################################
-route
+ip route help
 
 Usage: ip route {
                 | flush
@@ -683,7 +685,7 @@ BOOL := {
 TIME := NUMBER{s|ms|us|ns|j}
 
 ################################
-rule
+ip rule help
 
 Usage: ip rule list
 Usage: ip rule {
@@ -718,7 +720,7 @@ REALM_PAIR := [REALM(SRC)/]REALM(DEST)
 TABLE_ID (% as for 'ip mroute' %)
 
 ################################
-tcp_metrics
+ip tcp_metrics help
 
 Usage: ip tcp_metrics/tcpmetrics {
                                  | COMMAND
@@ -734,7 +736,7 @@ aliases:
   list → show
 
 ################################
-token
+ip token help
 
 Usage: ip token {
                 | get
@@ -746,7 +748,7 @@ aliases:
   show → list
 
 ################################
-tunnel
+ip tunnel help
 
 Usage: ip tunnel {
                  | 6rd
@@ -802,7 +804,7 @@ KEY  := {
         }
 
 ################################
-tuntap
+ip tuntap help
 
 Usage: ip tuntap {
                  | add
@@ -822,7 +824,7 @@ Usage: ip tuntap {
                      } ... ]
 
 ################################
-xfrm
+ip xfrm help
 
 Usage: ip xfrm XFRM_OBJECT {
                            | COMMAND
