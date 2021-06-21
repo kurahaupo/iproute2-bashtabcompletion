@@ -107,6 +107,9 @@ ONE_BIT := {
            | 128
            }
 
+(% Ports are normally non-zero, but 0 can sometimes be used as a wildcard. %)
+PORTZ := { 0..65535 }                           (% 16-bit unsigned integer %)
+
 PREFIX := ADDR/NUMBER
 
 SCOPE := {
@@ -216,8 +219,8 @@ Usage: ip l2tp add tunnel [ { encap {
                             | peer_tunnel_id ID
                             | remote ANY_ADDR
                             | tunnel_id ID
-                            | udp_dport PORT
-                            | udp_sport PORT
+                            | udp_dport PORTZ
+                            | udp_sport PORTZ
                             } ... ]
 Usage: ip l2tp add session [ {
                              | cookie HEXSTR
@@ -246,7 +249,6 @@ ANY_ADDR := {
             | ADDR
             | any
             }
-PORT   := { 0..65535 }
 ID     := { 1..4294967295 }
 HEXSTR := {
           | HHHHHHHH
