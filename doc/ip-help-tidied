@@ -89,6 +89,11 @@ LLADDR := {
           | HH:HH:HH:HH:HH:HH:HH:HH
           }
 
+ON_OFF := {
+          | off
+          | on
+          }
+
 ONE_BIT := {
            | 1
            | 2
@@ -271,48 +276,30 @@ Usage: ip link add [ {
        ip link set [ {
                      | address LLADDR
                      | alias NAME
-                     | allmulticast {
-                                    | off
-                                    | on
-                                    }
-                     | arp {
-                           | off
-                           | on
-                           }
+                     | allmulticast ON_OFF
+                     | arp ON_OFF
                      | broadcast LLADDR
                      | [ dev ] DEVICE           (% 'dev' or 'group' required %)
                      | down                     (% not with 'up' %)
-                     | dynamic {
-                               | off
-                               | on
-                               }
+                     | dynamic ON_OFF
                      | group DEVGROUP           (% 'dev' or 'group' required %)
                      | mac LLADDR               (% only with 'vf' %)
                      | master DEVICE | nomaster
                      | mtu MTU
-                     | multicast {
-                                 | off
-                                 | on
-                                 }
+                     | multicast ON_OFF
                      | name NEWNAME
                      | netns NAME
                      | netns PID
-                     | promisc {
-                               | off
-                               | on
-                               }
+                     | promisc ON_OFF
                      | qos VLAN-QOS             (% only with 'vf' then 'vlan' %)
                      | rate TXRATE              (% only with 'vf' %)
-                     | spoofchk { on | off }    (% only with 'vf' %)
+                     | spoofchk ON_OFF          (% only with 'vf' %)
                      | state {
                              | auto
                              | disable
                              | enable
                              }                  (% only with 'vf' %)
-                     | trailers {
-                                | off
-                                | on
-                                }
+                     | trailers ON_OFF
                      | txqueuelen PACKETS
                      | up                       (% not with 'down' %)
                      | vf NUM
@@ -349,23 +336,11 @@ LTYPE+ARGS := {
               | vxlan
               }
 
-CAN_ARG := { berr-reporting {
-                            | off
-                            | on
-                            }
+CAN_ARG := { berr-reporting ON_OFF
            | bitrate BITRATE
-           | listen-only {
-                         | off
-                         | on
-                         }
-           | loopback {
-                      | off
-                      | on
-                      }
-           | one-shot {
-                      | off
-                      | on
-                      }
+           | listen-only ON_OFF
+           | loopback ON_OFF
+           | one-shot ON_OFF
            | phase-seg1 SEGNUM
            | phase-seg2 SEGNUM
            | prop-seg SEGNUM
@@ -374,10 +349,7 @@ CAN_ARG := { berr-reporting {
            | sample-point SAMPLE-POINT
            | sjw { 1..4 }
            | tq NUMBER
-           | triple-sampling {
-                             | off
-                             | on
-                             }
+           | triple-sampling ON_OFF
            }
 
 BITRATE := { 1..1000000 }
@@ -395,20 +367,11 @@ VE_OPT := (unknown)
 
 VLAN_ARG := {
             | egress-qos-map QOS-MAP ...
-            | gvrp {
-                   | off
-                   | on
-                   }
+            | gvrp ON_OFF
             | id VLANID                         (% required %)
             | ingress-qos-map QOS-MAP ...
-            | loose_binding {
-                            | off
-                            | on
-                            }
-            | reorder_hdr {
-                          | off
-                          | on
-                          }
+            | loose_binding ON_OFF
+            | reorder_hdr ON_OFF
             }
 QOS-MAP := FROM:TO
 FROM := 32bitNUMBER
