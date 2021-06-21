@@ -284,7 +284,7 @@ Usage: ip link add {
                    | dynamic ON_OFF
                    | group DEVGROUP             (% 'dev' or 'group' required %)
                    | mac LLADDR                 (% only with 'vf' %)
-                   | master DEVICE | nomaster
+                   | master DEVICE              (% at most one of 'master' or 'nomaster' %)
                    | mtu MTU
                    | multicast ON_OFF
                    | name NEWNAME
@@ -292,6 +292,7 @@ Usage: ip link add {
                            | NAME
                            | PID
                            }
+                   | nomaster                   (% at most one of 'master' or 'nomaster' %)
                    | promisc ON_OFF
                    | qos VLAN-QOS               (% only with 'vf' then 'vlan' %)
                    | rate TXRATE                (% only with 'vf' %)
