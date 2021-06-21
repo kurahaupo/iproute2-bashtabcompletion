@@ -63,8 +63,8 @@ IPOPTION := {
 Shared non-terminals
 
 ADDR := {
-        | IP4_ADDR
-        | IP6_ADDR
+        | IPv4_ADDR
+        | IPv6_ADDR
         }
 
 ANY_ADDR := {
