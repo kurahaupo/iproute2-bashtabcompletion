@@ -280,7 +280,7 @@ Usage: ip link add {
                    | arp ON_OFF
                    | broadcast LLADDR
                    | [ dev ] DEVICE             (% 'dev' or 'group' required %)
-                   | down                       (% not with 'up' %)
+                   | down                       (% at most one of 'up' or 'down' %)
                    | dynamic ON_OFF
                    | group DEVGROUP             (% 'dev' or 'group' required %)
                    | mac LLADDR                 (% only with 'vf' %)
@@ -304,7 +304,7 @@ Usage: ip link add {
                            }                    (% only with 'vf' %)
                    | trailers ON_OFF
                    | txqueuelen PACKETS
-                   | up                         (% not with 'down' %)
+                   | up                         (% at most one of 'up' or 'down' %)
                    | vf NUM
                    | vlan VLANID                (% only with 'vf' %)
                    } ...
