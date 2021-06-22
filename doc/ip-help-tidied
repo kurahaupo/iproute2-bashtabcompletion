@@ -126,7 +126,7 @@ USER := {
 
 USERGROUP := {
              | GID
-             | GROUPNAME                        (% getgrent();: getent group or cat /etc/group %)
+             | GROUPNAME                        (% getgrent(): getent group or cat /etc/group %)
              }
 
 ################################
