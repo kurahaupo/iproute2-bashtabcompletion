@@ -119,10 +119,10 @@ SCOPE := {
          | link
          }
 
-USER  := {
-         | UID
-         | USERNAME                             (% getpwent(): getent passwd or cat /etc/passwd %)
-         }
+USER := {
+        | UID
+        | USERNAME                              (% getpwent(): getent passwd or cat /etc/passwd %)
+        }
 
 USERGROUP := {
              | GID
@@ -244,12 +244,12 @@ Usage: ip l2tp add session [ {
                               | tunnel_id ID
                               } ... ]
 
-NAME   := STRING
+NAME := STRING
 ANY_ADDR := {
             | ADDR
             | any
             }
-ID     := { 1..4294967295 }
+ID := { 1..4294967295 }
 HEXSTR := {
           | HHHHHHHH
           | HHHHHHHHHHHHHHHH
@@ -762,21 +762,21 @@ Usage: ip tunnel {
                      } ... ]
 
 TUNDEV := STRING                                (% your choice of name %)
-TOS  := {
-        | STRING
-        | 00..ff
-        | inherit
-        | inherit/STRING
-        | inherit/00..ff
-        }
-TTLI  := {
+TOS := {
+       | STRING
+       | 00..ff
+       | inherit
+       | inherit/STRING
+       | inherit/00..ff
+       }
+TTLI := {
         | 1..255
         | inherit
         }
-KEY  := {
-        | DOTTED_QUAD
-        | NUMBER
-        }
+KEY := {
+       | DOTTED_QUAD
+       | NUMBER
+       }
 
 ################################
 ip tuntap help
