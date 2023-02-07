@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Ensure that Perl files are valid, by using “perl -c” on:
+#  * all files named *.pm or *.pl
+#  * all executable files whose content starts with “#!.../perl”.
+#
+# Note: assume that files with no suffix are potential executables
+# If the project has a 'lib' directory, include it in PERL5LIB.
+
+shopt -s extglob    # avoid matching '*.*'
+shopt -s globstar   # recursive '**' search
+shopt -s nullglob   # in case this project has no Perl files
+
+PerlFiles=( **/*.p[lm] )
+NoSuffix=( **/!(*.*) )
+(( ${#NoSuffix[@]} )) &&
+readarray -tO${#PerlFiles[@]} PerlFiles < <(
+    grep -Esl '^#![[:space:]]*[^[:space:]]*perl' "${NoSuffix[@]}"
+)
+
+export PERL_debug_export=0  # Shush! Don't report exports, despite « perl -c »
+
+perl_opts=()
+[[ -d lib ]] && perl_opts+=( -Ilib )
+
+for f in "${PerlFiles[@]}"
+do
+    printf '\n\e[1;33;40m%s\e[m\n' "$f"
+    perl -c "${perl_opts[@]}" "$f" || exit
+done
