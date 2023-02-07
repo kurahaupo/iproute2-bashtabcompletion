@@ -1,5 +1,8 @@
 PRE-COMMIT CHECKING.
 
+To activate, in the root of the repo run:
+    ln -svf ../../.git.precommit.d/pre-commit .git/hooks/
+
 Wheneven a "git commit" is attempted, if the ".git/hooks/pre-commit" script
 exists, it is run, and must "pass" (return status 0) for the commit to proceed.
 
