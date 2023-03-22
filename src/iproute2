@@ -659,7 +659,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P5
                     save_family=-F$_V
                     ;;
 
@@ -668,7 +668,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P6
                     STATE+="+$_V"
                     case $_V in
                         (add|change|delete|replace) STATE+="/=dev/?PREFIX" ;;
@@ -688,7 +688,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P7
                     case $_V in
                         (anycast|broadcast)         STATE+=/ADDR     ;;
                         (dev)                       STATE+=/DEVICE   ;;
@@ -702,12 +702,11 @@ _ip() {
                     ;;
 
                 (addrlabel)
-
                     __ip_match ANY -V add del flush  list show=list ?=help help ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4a $_V
+                    __ip_debug_parsing_state P8 $_V
                     STATE+=+$_V
                     ;;
 
@@ -722,7 +721,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4b $_V
+                    __ip_debug_parsing_state P9 $_V
                     case $_V in
                         (prefix)  STATE+=/PREFIX ;;
                         (dev)     STATE+=/DEVICE ;;
@@ -735,7 +734,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P10
                     STATE+=+$_V
                     case $_V in
                         (add)                  STATE+=/=link ;;
@@ -748,7 +747,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P11
                     case $_V in
                         (addr|broadcast)    STATE+=/LLADDR ;;
                         (link)              STATE+=/DEVICE ;;
@@ -763,7 +762,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P12
                     case $_V in
                         (link)              STATE+=/DEVICE ;;
                         (type)              STATE+=+$_V+type ;;
@@ -776,7 +775,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P13
                     case $_V in
                         (addr|broadcast)      STATE+=/LLADDR    ;;
                         (alias)               STATE+=/NAME      ;;
@@ -791,12 +790,11 @@ _ip() {
                     ;;
 
                 (link+set+vf)
-
                     __ip_match ANY -R -V mac qos rate vlan ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P14
                     case $_V in
                         (mac)  STATE+=/LLADDR ;;
                         (qos)  STATE+=/NUMBER8 ;;
@@ -810,7 +808,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P15
                     case $_V in
                         (id) STATE+=/NUM:1:4095 ;;
                         (gvrp|loose_binding|reorder_hdr) STATE+=/ONOFF ;;
@@ -823,7 +821,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P16
                     ;;
 
                 (link+*+type)
@@ -831,7 +829,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P17
                     STATE+=+$_V
                     ;;
 
@@ -841,7 +839,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P18
                     case $_V in
                         (restart)       ;;
                         (bitrate)       STATE+=/NUM:1:1000000 ;;
@@ -877,7 +875,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P19
                     STATE+=+$_V
                     case $_V in
                         (add|delete) ;;
@@ -890,7 +888,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P20
                     case $_V in
                         (dev) STATE+=/DEVICE ;;
                     esac
@@ -901,7 +899,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P21
                     STATE=FINISH  # no more args
                     ;;
 
@@ -910,7 +908,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P22
                     STATE+=+$_V
                     case $_V in
                         (show|list) STATE+=+show/PREFIX0 ;;
@@ -922,7 +920,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P23
                     case $_V in
                         (from)  STATE+=/PREFIX0 ;;
                         (iif)   STATE+=/DEVICE ;;
@@ -934,7 +932,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P24
                     STATE+=+$_V
                     case $_V in
                         (add|change|delete|replace) STATE+=/ADDR ;;
@@ -947,7 +945,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P25
                     case $_V in
                         (dev)       STATE+=/DEVICE ;;
                         (lladdr)    STATE+=/LLADDR ;;
@@ -961,7 +959,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P26
                     STATE+=+$_V
                     ;;
 
@@ -970,7 +968,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P27
                     case $_V in
                         (add|append|change|replace) STATE+=+A/=dev/PREFIX0/route+R ;;
                         (delete)                    STATE+=+A/=dev/PREFIX0/route+R ;;
@@ -983,7 +981,7 @@ _ip() {
                     __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
                                       prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
                     { __ip_pop_state && continue ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P28
                     STATE=route+A
                     ;;
 
@@ -1016,7 +1014,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P29
                     case $_V in
                         (exact)         STATE+=/PREFIX0   ;;
                         (match)         STATE+=/PREFIX0   ;;
@@ -1033,7 +1031,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P30
                     case $_V in
                         (from)          STATE+=/=iif/ADDR ;;
                         (dev|iif|oif)   STATE+=/DEVICE    ;;
@@ -1048,7 +1046,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P31
                     case $_V in
                         (advmss|weight)     STATE+=/NUMBER16 ;;
                         (cwnd|initcwnd|mtu) STATE+=/NUMBER32 ;;
@@ -1073,7 +1071,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P32
                     STATE+=+$_V
                     ;;
 
@@ -1086,7 +1084,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P33
                     case $_V in
                         (dev)           STATE+=/DEVICE   ;;
                         (from|to)       STATE+=/PREFIX0  ;;
@@ -1118,7 +1116,7 @@ _ip() {
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    __ip_debug_parsing_state P4
+                    __ip_debug_parsing_state P34
                     case $_V in
                         (icsum|iseq|ocsum|oseq|nopmtudisc|pmtudisc) ;;
                         (6rd-reset) ;;
@@ -1173,10 +1171,11 @@ _ip() {
                     ;;
 
                 (xfrm+*)
+                    # TODO
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
-                    ;; # TODO
+                    ;;
 
                 (NAME)
                     __ip_match ANY "$cur " "$cur..." ||
@@ -1400,7 +1399,7 @@ _ip() {
 
             esac  # }}}
 
-            __ip_debug_parsing_state P5
+            __ip_debug_parsing_state P35
 
         done  # }}}
 
