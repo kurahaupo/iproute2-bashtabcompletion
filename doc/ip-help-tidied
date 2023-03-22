@@ -119,8 +119,22 @@ SCOPE := {
          | link
          }
 
+TABLE_ID := {
+            | NUMBER
+            | default                           (% any word from /etc/iproute2/rt_tables %)
+            | local
+            | main
+            }
+TABLE_ID+ALL := {
+                | TABLE_ID
+                | all
+                }
+
 USER := {
-        | UID
+        | UID                                   (% provisionally -2..4294967293
+                                                 % but effectively any signed
+                                                 % decimal integer truncated to
+                                                 % 32-bit %)
         | USERNAME                              (% getpwent(): getent passwd or cat /etc/passwd %)
         }
 
@@ -428,17 +442,6 @@ Usage: ip mroute show [ {
                         | [ to ] DPREFIX
                         } ... ]
 
-TABLE_ID := {
-            | NUMBER
-            | default
-            | local
-            | main
-            }
-TABLE_ID+ALL := {
-                | TABLE_ID
-                | all
-                }
-
 ################################
 ip mrule help
 
@@ -460,7 +463,7 @@ Usage: ip rule {
                    | reject
                    | suppress_ifgroup DEVGROUP
                    | suppress_prefixlength NUMBER
-                   | table(lookup) TABLE_ID
+                   | table TABLE_ID
                    | to DPREFIX
                    | tos TOS
                    | unreachable
@@ -468,8 +471,7 @@ Usage: ip rule {
 
 aliases:
   show → list
-
-TABLE_ID (% as for 'ip mroute' %)
+  lookup → table
 
 ################################
 ip neigh help
@@ -565,10 +567,7 @@ Usage: ip route {
                     | proto RTPROTO
                     | root DPREFIX
                     | scope SCOPE
-                    | table {
-                            | TABLE_ID
-                            | all
-                            }
+                    | table TABLE_ID+ALL
                     | type RTYPE
                     } ... ]
        ip route restore
@@ -639,7 +638,6 @@ RTYPE := {
          | unicast
          | unreachable
          }
-TABLE_ID (% as for 'ip mroute' %)
 SCOPE := {
          | NUMBER
          | global
@@ -691,7 +689,6 @@ aliases:
   dev  → iif
 
 REALM_PAIR := [REALM(SRC)/]REALM(DEST)
-TABLE_ID (% as for 'ip mroute' %)
 
 ################################
 ip tcp_metrics help
