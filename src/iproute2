@@ -45,9 +45,9 @@ _ip() {
     [[ $false = 0 ]] || local -ri false=0
 
     case $COMP_TYPE in
-        (63) ((++__ip_comp_count >= 3)) && COMP_TYPE=best ;;
-        (9)  ((__ip_comp_count=1)) ;;
-        (*)  ((__ip_comp_count=0)) ;;
+        (63) (( ++__ip_comp_count >= 3 )) && COMP_TYPE=best ;;
+        (9)  (( __ip_comp_count=1 )) ;;
+        (*)  (( __ip_comp_count=0 )) ;;
     esac
     COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
 
@@ -97,7 +97,7 @@ _ip() {
         then
             echo "$*"
             local l d
-            for ((l=1;l<20;l++)) do
+            for (( l=1 ; l<20 ; l++ )) do
                 d=$( caller $l ) && [[ -n $d ]] || break
                 echo "    $d"
             done
@@ -568,8 +568,8 @@ _ip() {
 
     local __perform_expansion=false
     for STATE in START ; do  # {{{
-        # singleton "loop", so that "continue 2" works in the next loop
-        for ((cword_index=1;cword_index<=COMP_CWORD;cword_index++)) do  # {{{
+        # singleton outer "loop", so that "break 2" works in the inner loop
+        for (( cword_index=1 ; cword_index<=COMP_CWORD ; cword_index++ )) do  # {{{
 
             ((cword_index==COMP_CWORD)) && __perform_expansion=true
             cur=${COMP_WORDS[cword_index]}
@@ -1406,4 +1406,5 @@ _ip() {
     __ip__cleanup
     return 1
 }
+
 complete -F _ip -o nospace ip
