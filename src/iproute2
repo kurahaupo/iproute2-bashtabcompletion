@@ -17,8 +17,6 @@
 # to disable.
 #
 
-[[ $(type -t have) != function ]] || have ip || return
-
 _ip() {
 
     [[  $true = 1 ]] || local -ri  true=1
