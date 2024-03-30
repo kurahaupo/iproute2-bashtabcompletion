@@ -7,14 +7,22 @@ export PERL5LIB="$PWD"
 declare -i num_errors=0
 
 shopt -s globstar   # find any 't' directory
+shopt -s nullglob   # not an error if there are no tests
+
 
 for t in **/t/* ; do
     [[ -s $t ]] || continue
     if
         case $t in
-        *.sh) sh "$t" ;;
-        *.pl) perl "$t" ;;
-        *) echo "Unknown filetype" ; false ;;
+        *.bash) bash "$t" ;;
+        *.pl)   perl "$t" ;;
+        *.sh)   sh   "$t" ;;
+        *)
+            if [[ -x $t ]]
+            then    "$t"
+            else echo "Unknown filetype '$t'" ; false
+            fi
+            ;;
         esac
     then printf '\e[44;32;1mOK\e[m   %s\n'       "$t"
     else printf '\e[41;33;1mFAIL\e[m %s (%#x)\n' "$t" $? ; ((++num_errors))
