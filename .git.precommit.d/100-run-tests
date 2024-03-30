@@ -5,13 +5,18 @@ PATH=/bin:/usr/bin
 export PERL5LIB="$PWD"
 
 declare -i num_errors=0
+declare -i num_tests=0
 
 shopt -s globstar   # find any 't' directory
 shopt -s nullglob   # not an error if there are no tests
 
 
 for t in **/t/* ; do
-    [[ -s $t ]] || continue
+    # Quietly skip empty files, dangling symlinks, directories, pipes, etc
+    [[ -f $t && -s $t ]] || continue
+
+    ((++num_tests))
+
     if
         case $t in
         *.bash) bash "$t" ;;
@@ -28,5 +33,18 @@ for t in **/t/* ; do
     else printf '\e[41;33;1mFAIL\e[m %s (%#x)\n' "$t" $? ; ((++num_errors))
     fi
 done
+
+if ((num_tests > 0)) ; then
+    case $num_errors/$num_tests in
+        (0/1)          printf '\e[32;1mThe test passed\e[39;22m\n' ;;
+        (1/1)          printf '\e[33;1mThe test failed\e[39;22m\n' ;;
+        (0/2)          printf '\e[32;1mBoth tests passed\e[39;22m\n' ;;
+        (2/2)          printf '\e[33;1mBoth tests failed\e[39;22m\n' ;;
+        (0/*)          printf '\e[32;1mAll %u tests passed\e[39;22m\n' "$num_tests" ;;
+        ($num_tests/*) printf '\e[33;1mAll %u tests failed\e[39;22m\n' "$num_tests" ;;
+        (*/*)          printf 'Of \e[33;1m%u\e[22m tests\e[39m, \e[32;1m%u\e[22m passed\e[39m and \e[31;1m%u\e[22m failed\e[39m\n' \
+                              "$num_tests" "$((num_tests-num_errors))" "$num_errors"
+    esac
+fi
 
 exit $((num_errors==0 ? 0 : 1))
