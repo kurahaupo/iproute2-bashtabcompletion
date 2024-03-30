@@ -478,13 +478,20 @@ _ip() {
         local __ignore_prefix= __suffix=' '
         local _p _q _t
 
+        local _pmask='(2<<_p-1)-1'
+        # _pmask is a mask of the bottom _p bits. Avoid shifting by the entire word
+        # size, to avoid wrap-around when asking for 32-bit numbers on 32-bit
+        # machines. (Hiding <<bitshift inside a var also stops so the editor's
+        # syntax highlighter from thinking it's a heredoc.)
+
         while [[ $1 = -* ]]
         do
             case $1 in
-                ( --[0-9]*bit )     (( _p = ${1//[^0-9]/},   __min = 0, __max = (1<<_p)-1 )) ;;
+                ( --[0-9]*bit )     (( _p = ${1//[^0-9]/},   __max = _pmask, __min = 0 )) ;;
                 ( --max*=* )        __max=${1#--*=} ;;
                 ( --min*=* )        __min=${1#--*=} ;;
-                ( --s*[0-9]*bit )   (( _p = ${1//[^0-9]/}-1, __min = -1<<_p, __max = (1<<_p)-1 )) ;;
+                ( --signed*[0-9]*bit )
+                                    (( _p = ${1//[^0-9]/}-1, __max = _pmask, __min = ~__max )) ;;
                 ( -A )              __radix=auto ;;
                 ( -B?* )            __radix=${1#-?} ;;
                 ( -I* )             __ignore_prefix=${1#-?} ;;
