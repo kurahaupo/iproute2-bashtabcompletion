@@ -31,8 +31,8 @@ _ip() {
     esac
     COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
 
-    # "expecting" is stack of partial states, as a string separated by slashes,
-    # shallowest-to-deepest
+    # "STATE" is stack of parser states, as a string separated by slashes,
+    # topmost at the end.
     local STATE=
     local cur="(start-of-line)"
     local cword_index=0
