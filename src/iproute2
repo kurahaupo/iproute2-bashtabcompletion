@@ -89,7 +89,7 @@ _ip() {
     # message, with a stack trace using the "caller" built-in (if available).
     #
     __ip_cluck() {
-        ${COMP_VERBOSE:+:} false || return
+        [[ -n $COMP_VERBOSE ]] || return
         if [[ $( type -t cluck ) = function ]]
         then
             (cluck "$@" 2>&1)
@@ -254,7 +254,7 @@ _ip() {
             $__skip_seen && {
                 _q="${_p#*=}"
                 _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
-                eval \${$_q:+:} false && continue
+                [[ -n ${!_q} ]] && continue
             }
             _p="${_p%%=*}"
             _p="${_p:-$_t}"
@@ -520,7 +520,7 @@ _ip() {
 
     COMPREPLY=()
 
-    if ${COMP_VERBOSE:+:} false
+    if [[ -n $COMP_VERBOSE ]]
     then
         if [[ -t 7 || -w /dev/fd/7 || -w /proc/self/fd/7 ]]
         then
