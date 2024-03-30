@@ -597,7 +597,9 @@ _ip() {
                     ;;
 
                 (BATCHFILE)
-                    save_batchfile=$cur ;;
+                    save_batchfile=$cur
+                    ;;
+
                 (FAMILY)
                     __ip_match ANY -V dnet inet inet6 ipx link ||
                     __ip_match_failed
@@ -646,8 +648,11 @@ _ip() {
                     __ip_debug_parsing_state P4a $_V
                     STATE+=+$_V
                     ;;
+
                 (addrlabel+list)
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (addrlabel+*)
                     __ip_match ANY -V -R prefix dev label ||
                     __ip_match_failed
@@ -736,7 +741,6 @@ _ip() {
                     ;;
 
                 (link+show|link+list)
-
                     STATE=FINISH
                     __ip_match_failed
                     __ip_debug_parsing_state P4
@@ -750,7 +754,6 @@ _ip() {
                     ;;
 
                 (link+*+type+can)
-
                     __ip_match ANY -R -V berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 \
                                          prop-seg restart restart-ms sample-point sjw tq triple-sampling ||
                     __ip_match_failed
@@ -766,16 +769,22 @@ _ip() {
                         (berr-reporting|listen-only|loopback|one-shot|triple-sampling) STATE+=/ONOFF ;;
                     esac
                     ;;
+
                 (link+*+type+dummy)
                     ;;
+
                 (link+*+type+ifb)
                     ;;
+
                 (link+*+type+macvlan)
                     ;;
+
                 (link+*+type+vcan)
                     ;;
+
                 (link+*+type+veth)
                     ;;
+
                 (link+*+type+vlan)
                     ;;
 
@@ -815,6 +824,7 @@ _ip() {
                         (show|list) STATE+=+show/PREFIX0 ;;
                     esac
                     ;;
+
                 (mroute+show)
                     __ip_match ANY -V from iif ||
                     __ip_match_failed
@@ -1006,17 +1016,31 @@ _ip() {
                     ;;
 
                 (KEY)
-                    __ip_match_addr -Finet || __ip_match NUM || __ip_match_failed ;;
+                    __ip_match_addr -Finet ||
+                    __ip_match NUM ||
+                    __ip_match_failed
+                    ;;
+
                 (TOS)
-                    __ip_match NUM -V                   || __ip_match ANY inherit || __ip_match_failed ;;
+                    __ip_match NUM -V ||
+                    __ip_match ANY inherit ||
+                    __ip_match_failed
+                    ;;
+
                 (TTL)
-                    __ip_match NUM -V --min=1 --max=255 || __ip_match ANY inherit || __ip_match_failed ;;
+                    __ip_match NUM -V --min=1 --max=255 ||
+                    __ip_match ANY inherit ||
+                    __ip_match_failed
+                    ;;
 
                 (TMODE)
-                    __ip_match ANY ipip gre sit || __ip_match_failed ;;
+                    __ip_match ANY ipip gre sit ||
+                    __ip_match_failed
+                    ;;
 
                 (xfrm)
-                    __ip_match ANY -V policy state monitor || __ip_match_failed
+                    __ip_match ANY -V policy state monitor ||
+                    __ip_match_failed
                     STATE+=+$_V
                     ;;
 
@@ -1025,94 +1049,167 @@ _ip() {
                     ;; # TODO
 
                 (NAME)
-                    __ip_match ANY "$cur " "$cur..." || __ip_match_failed ; __ip_seen_NAME=true ;;
+                    __ip_match ANY "$cur " "$cur..." ||
+                    __ip_match_failed
+                    __ip_seen_NAME=true
+                    ;;
+
                 (ADDR)
-                    __ip_match_addr $save_family     || __ip_match_failed ;;
+                    __ip_match_addr $save_family ||
+                    __ip_match_failed
+                    ;;
+
                 (MADDR)
-                    __ip_match_addr $save_family -m  || __ip_match_failed ;;
+                    __ip_match_addr $save_family -m ||
+                    __ip_match_failed
+                    ;;
+
                 (LLADDR)
-                    __ip_match_addr -Flink           || __ip_match_failed ;;
+                    __ip_match_addr -Flink ||
+                    __ip_match_failed
+                    ;;
+
                 (PREFIX0)
-                    __ip_match_addr $save_family -pd || __ip_match_failed ; __ip_seen_PREFIX=true ;;
+                    __ip_match_addr $save_family -pd ||
+                    __ip_match_failed
+                    __ip_seen_PREFIX=true
+                    ;;
+
                 (PREFIX)
-                    __ip_match_addr $save_family -p  || __ip_match_failed ; __ip_seen_PREFIX=true ;;
+                    __ip_match_addr $save_family -p ||
+                    __ip_match_failed
+                    __ip_seen_PREFIX=true
+                    ;;
 
                 (DEVICE)
                     __ip_match ANY -Vsave_device $( ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" ) ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (FWMARK+MASK)
                     case $cur in
                         (*/*/*) false ;;
                         (*)    __ip_match NUM -I'*/' --32bit ;;
                     esac ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (LIFETIME)
                     __ip_match ANY forever ||
                     __ip_match NUM --8bit ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
 
                 (NUDSTATE)
-                    __ip_match ANY noarp permanent reachable stale || __ip_match_failed ;;
+                    __ip_match ANY noarp permanent reachable stale ||
+                    __ip_match_failed
+                    ;;
 
                 (NUM:*:*)
                     max_num=${expecting#NUM:} ; min_num=${max_num%:*} max_num=${max_num#*:}
-                    __ip_match NUM --min=$min_num --max=$max_num || __ip_match_failed ;;
+                    __ip_match NUM --min=$min_num --max=$max_num ||
+                    __ip_match_failed
+                    ;;
+
                 (NUM:*)
-                    __ip_match NUM --max=${expecting##*:}        || __ip_match_failed ;;
+                    __ip_match NUM --max=${expecting##*:} ||
+                    __ip_match_failed
+                    ;;
+
                 (NUMBER)
-                    __ip_match NUM                               || __ip_match_failed ;;
+                    __ip_match NUM ||
+                    __ip_match_failed
+                    ;;
+
                 (NUMBER8)
-                    __ip_match NUM --8bit                        || __ip_match_failed ;;
+                    __ip_match NUM --8bit ||
+                    __ip_match_failed
+                    ;;
+
                 (NUMBER16)
-                    __ip_match NUM --16bit                       || __ip_match_failed ;;
+                    __ip_match NUM --16bit ||
+                    __ip_match_failed
+                    ;;
+
                 (NUMBER32)
-                    __ip_match NUM --32bit                       || __ip_match_failed ;;
+                    __ip_match NUM --32bit ||
+                    __ip_match_failed
+                    ;;
+
                 (NUMBER31S)
-                    __ip_match NUM --signed32bit                 || __ip_match_failed ;;
+                    __ip_match NUM --signed32bit ||
+                    __ip_match_failed
+                    ;;
+
                 (ONOFF)
-                    __ip_match ANY on off                               || __ip_match_failed ;;
+                    __ip_match ANY on off ||
+                    __ip_match_failed
+                    ;;
+
                 (QOSMAP)
                     case $cur in
                         (*[^0-9:]*|*:*:*) false ;;
                         (*)   __ip_match NUM -I'*:' ;;
-                    esac || __ip_match_failed ;;
+                    esac ||
+                    __ip_match_failed
+                    ;;
+
                 (REALMPAIR)
                     case $cur in
                         (*/*/*) false ;;
                         (*)     __ip_match NUM -I'*/' --8bit ||
                                 __ip_match ANY -C${cur#*/} $( __ip_slurp /etc/iproute2/rt_realms ) ;;
                     esac ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (REALM)
                     __ip_match NUM --8bit ||
                     __ip_match ANY $( __ip_slurp /etc/iproute2/rt_realms ) ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (SCOPE)
                     __ip_match NUM --8bit ||
                     __ip_match ANY $( __ip_slurp /etc/iproute2/rt_scopes ) ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (LABEL)
-                    [[ $save_device ]] && __ip_match ANY $save_device: $save_device:... || true ;;
+                    [[ $save_device ]] &&
+                    __ip_match ANY $save_device: $save_device:... ||
+                    true
+                    ;;
+
                 (TABLE)
                     __ip_match NUM --8bit ||
                     __ip_match ANY default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (TABLE+)
                     __ip_match NUM --max=255 --min=-2 ||
                     __ip_match ANY all default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (RTYPE)
                     __ip_match ANY -R blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
                                       prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (RTPROTO)
                     __ip_match ANY -R boot==RTPROTO kernel==RTPROTO static==RTPROTO ||
                     __ip_match NUM --8bit ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
+
                 (TOS)
                     __ip_match ANY inherit ||
                     __ip_match NUM --8bit ||
-                    __ip_match_failed ;;
+                    __ip_match_failed
+                    ;;
 
                 (*)
                     __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur" ;;
