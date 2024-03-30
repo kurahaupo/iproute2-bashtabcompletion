@@ -4,8 +4,10 @@
 
 # Normally diff against head ...
 export git_head=HEAD
-# ... but for an initial commit, diff against an empty tree object
-git rev-parse --verify "$git_head" >/dev/null 2>&1 && git_head=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+
+# ... but for an initial commit (no HEAD), diff against an empty tree object
+git rev-parse --verify "$git_head" >/dev/null 2>&1 ||
+git_head=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 
 if [[ -d .git.precommit.d ]]
 then
