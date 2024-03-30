@@ -565,486 +565,557 @@ _ip() {
 
             case $expecting in  # {{{
 
-                (START)         __ip_match ANY -R -V \
-                                              addr address=addr addrlabel link maddr monitor \
-                                              mroute neigh ntable route rule tunnel \
-                                              xfrm \
-                                              -0='-family link' -4='-family inet' -6='-family inet6' \
-                                              -B='-family bridge' -D='-family decnet' -I='-family ipx' \
-                                              -batch      --batch=-batch           \
-                                              -details    --details=-details       \
-                                              -family     --family=-family         \
-                                              -oneline    --oneline=-oneline       \
-                                              -resolve    --resolve=-resolve       \
-                                              -statistics --statistics=-statistics \
-                                              -timestamp  --timestamp=-timestamp   \
-                                              -Version    --Version=-Version
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (-family) STATE+=/FAMILY ;;
-                                    (-0)      save_family=-Flink ;;
-                                    (-4)      save_family=-Finet ;;
-                                    (-6)      save_family=-Finet6 ;;
-                                    (-B)      save_family=-Fbridge ;;
-                                    (-D)      save_family=-Fdecnet ;;
-                                    (-I)      save_family=-Fipx ;;
+                (START)
+                    __ip_match ANY -R -V \
+                                  addr address=addr addrlabel link maddr monitor \
+                                  mroute neigh ntable route rule tunnel \
+                                  xfrm \
+                                  -0='-family link' -4='-family inet' -6='-family inet6' \
+                                  -B='-family bridge' -D='-family decnet' -I='-family ipx' \
+                                  -batch      --batch=-batch           \
+                                  -details    --details=-details       \
+                                  -family     --family=-family         \
+                                  -oneline    --oneline=-oneline       \
+                                  -resolve    --resolve=-resolve       \
+                                  -statistics --statistics=-statistics \
+                                  -timestamp  --timestamp=-timestamp   \
+                                  -Version    --Version=-Version
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (-family) STATE+=/FAMILY ;;
+                        (-0)      save_family=-Flink ;;
+                        (-4)      save_family=-Finet ;;
+                        (-6)      save_family=-Finet6 ;;
+                        (-B)      save_family=-Fbridge ;;
+                        (-D)      save_family=-Fdecnet ;;
+                        (-I)      save_family=-Fipx ;;
 
-                                    (-batch)  STATE+=/BATCHFILE ;;
-                                    (-*|'')   ;;
-                                    (*)       STATE=$_V ;;
-                                esac
-                                ;;
+                        (-batch)  STATE+=/BATCHFILE ;;
+                        (-*|'')   ;;
+                        (*)       STATE=$_V ;;
+                    esac
+                    ;;
 
-                (BATCHFILE)     save_batchfile=$cur ;;
-                (FAMILY)        __ip_match ANY -V dnet inet inet6 ipx link ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                save_family=-F$_V
-                                ;;
+                (BATCHFILE)
+                    save_batchfile=$cur ;;
+                (FAMILY)
+                    __ip_match ANY -V dnet inet inet6 ipx link ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    save_family=-F$_V
+                    ;;
 
-                (addr)          __ip_match ANY -V add change delete flush list=show monitor replace show ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+="+$_V"
-                                case $_V in
-                                    (add|change|delete|replace) STATE+="/=dev/?PREFIX" ;;
-                                    (flush|list|show) ;;
-                                    (get) STATE+="/ADDR" ;;
-                                esac
-                                ;;
+                (addr)
+                    __ip_match ANY -V add change delete flush list=show monitor replace show ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+="+$_V"
+                    case $_V in
+                        (add|change|delete|replace) STATE+="/=dev/?PREFIX" ;;
+                        (flush|list|show) ;;
+                        (get) STATE+="/ADDR" ;;
+                    esac
+                    ;;
 
-                (addr+*)        case ${expecting#*+} in
-                                    (add|change|replace) __ip_match ANY -R -V preferred_lft valid_lft ;&
-                                    (flush|list|show)    __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
-                                                                              permanent primary scope secondary tentative to ;&
-                                    (delete)             __ip_match ANY -R -V dev ;;
-                                    (*) false ;;
-                                esac ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (anycast|broadcast)         STATE+=/ADDR     ;;
-                                    (dev)                       STATE+=/DEVICE   ;;
-                                    (label)                     STATE+=/LABEL    ;;
-                                    (preferred_lft|valid_lft)   STATE+=/LIFETIME ;;
-                                    (peer|to)                   STATE+=/PREFIX   ;;
-                                    (scope)                     STATE+=/SCOPE    ;;
-                                    (deprecated|dynamic|home|nodad|permanent|primary|secondary|tentative) ;;
-                                esac
-                                $__ip_seen_PREFIX || STATE+=/?PREFIX
-                                ;;
+                (addr+*)
+                    case ${expecting#*+} in
+                        (add|change|replace) __ip_match ANY -R -V preferred_lft valid_lft ;&
+                        (flush|list|show)    __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
+                                                                  permanent primary scope secondary tentative to ;&
+                        (delete)             __ip_match ANY -R -V dev ;;
+                        (*) false ;;
+                    esac ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (anycast|broadcast)         STATE+=/ADDR     ;;
+                        (dev)                       STATE+=/DEVICE   ;;
+                        (label)                     STATE+=/LABEL    ;;
+                        (preferred_lft|valid_lft)   STATE+=/LIFETIME ;;
+                        (peer|to)                   STATE+=/PREFIX   ;;
+                        (scope)                     STATE+=/SCOPE    ;;
+                        (deprecated|dynamic|home|nodad|permanent|primary|secondary|tentative) ;;
+                    esac
+                    $__ip_seen_PREFIX || STATE+=/?PREFIX
+                    ;;
 
                 (addrlabel)
-                                __ip_match ANY -V add del flush  list show=list ?=help help ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4a $_V
-                                STATE+=+$_V
-                                ;;
-                (addrlabel+list) __ip_match_failed ;;
-                (addrlabel+*)   __ip_match ANY -V -R prefix dev label ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4b $_V
-                                case $_V in
-                                    (prefix)  STATE+=/PREFIX ;;
-                                    (dev)     STATE+=/DEVICE ;;
-                                    (label)   STATE+=/NUMBER ;;
-                                esac
-                                ;;
 
-                (link)          __ip_match ANY -V add delete list=show ls=show set show ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                case $_V in
-                                    (add)                  STATE+=/=link ;;
-                                    (delete|set|show|list) STATE+=/DEVICE ;;
-                                esac
-                                ;;
+                    __ip_match ANY -V add del flush  list show=list ?=help help ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4a $_V
+                    STATE+=+$_V
+                    ;;
+                (addrlabel+list)
+                    __ip_match_failed ;;
+                (addrlabel+*)
+                    __ip_match ANY -V -R prefix dev label ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4b $_V
+                    case $_V in
+                        (prefix)  STATE+=/PREFIX ;;
+                        (dev)     STATE+=/DEVICE ;;
+                        (label)   STATE+=/NUMBER ;;
+                    esac
+                    ;;
 
-                (link+add)      __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (addr|broadcast)    STATE+=/LLADDR ;;
-                                    (link)              STATE+=/DEVICE ;;
-                                    (mtu|txqueuelen)    STATE+=/NUMBER ;;
-                                    (name)              STATE+=/NAME ;;
-                                    (type)              STATE+=$_V+type ;;
-                                esac
-                                ;;
+                (link)
+                    __ip_match ANY -V add delete list=show ls=show set show ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    case $_V in
+                        (add)                  STATE+=/=link ;;
+                        (delete|set|show|list) STATE+=/DEVICE ;;
+                    esac
+                    ;;
 
-                (link+delete)   __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (link)              STATE+=/DEVICE ;;
-                                    (type)              STATE+=+$_V+type ;;
-                                esac
-                                ;;
+                (link+add)
+                    __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (addr|broadcast)    STATE+=/LLADDR ;;
+                        (link)              STATE+=/DEVICE ;;
+                        (mtu|txqueuelen)    STATE+=/NUMBER ;;
+                        (name)              STATE+=/NAME ;;
+                        (type)              STATE+=$_V+type ;;
+                    esac
+                    ;;
 
-                (link+set)      __ip_match ANY -V addr address=addr alias allmulticast arp broadcast down dynamic mtu multicast name \
-                                                  netns promisc trailers txqueuelen up vf ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (addr|broadcast)      STATE+=/LLADDR    ;;
-                                    (alias)               STATE+=/NAME      ;;
-                                    (allmulticast|arp|dynamic|multicast|promisc|trailers) STATE+=/ONOFF ;;
-                                    (mtu)                 STATE+=/NUMBER32  ;;
-                                    (name)                STATE+=/NAME      ;;
-                                    (netns)               STATE+=/NUMBER16  ;;
-                                    (txqueuelen)          STATE+=/NUMBER8   ;;
-                                    (up|down) ;;
-                                    (vf)                  STATE+=+vf/NUMBER ;;
-                                esac
-                                ;;
+                (link+delete)
+                    __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (link)              STATE+=/DEVICE ;;
+                        (type)              STATE+=+$_V+type ;;
+                    esac
+                    ;;
+
+                (link+set)
+                    __ip_match ANY -V addr address=addr alias allmulticast arp broadcast down dynamic mtu multicast name \
+                                      netns promisc trailers txqueuelen up vf ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (addr|broadcast)      STATE+=/LLADDR    ;;
+                        (alias)               STATE+=/NAME      ;;
+                        (allmulticast|arp|dynamic|multicast|promisc|trailers) STATE+=/ONOFF ;;
+                        (mtu)                 STATE+=/NUMBER32  ;;
+                        (name)                STATE+=/NAME      ;;
+                        (netns)               STATE+=/NUMBER16  ;;
+                        (txqueuelen)          STATE+=/NUMBER8   ;;
+                        (up|down) ;;
+                        (vf)                  STATE+=+vf/NUMBER ;;
+                    esac
+                    ;;
 
                 (link+set+vf)
-                                __ip_match ANY -R -V mac qos rate vlan ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (mac)  STATE+=/LLADDR ;;
-                                    (qos)  STATE+=/NUMBER8 ;;
-                                    (rate) STATE+=/RATE ;;
-                                    (vlan) STATE=link+set+VLAN/=id ;;
-                                esac
-                                ;;
 
-                (link+set+VLAN) __ip_match ANY -R -V id gvrp loose_binding reorder_hdr ingress-qos-map egress-qos-map ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (id) STATE+=/NUM:1:4095 ;;
-                                    (gvrp|loose_binding|reorder_hdr) STATE+=/ONOFF ;;
-                                    (*qos-map) STATE+=/QOSMAP ;;
-                                esac
-                                ;;
+                    __ip_match ANY -R -V mac qos rate vlan ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (mac)  STATE+=/LLADDR ;;
+                        (qos)  STATE+=/NUMBER8 ;;
+                        (rate) STATE+=/RATE ;;
+                        (vlan) STATE=link+set+VLAN/=id ;;
+                    esac
+                    ;;
+
+                (link+set+VLAN)
+                    __ip_match ANY -R -V id gvrp loose_binding reorder_hdr ingress-qos-map egress-qos-map ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (id) STATE+=/NUM:1:4095 ;;
+                        (gvrp|loose_binding|reorder_hdr) STATE+=/ONOFF ;;
+                        (*qos-map) STATE+=/QOSMAP ;;
+                    esac
+                    ;;
 
                 (link+show|link+list)
-                                STATE=FINISH
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                ;;
 
-                (link+*+type)   __ip_match ANY -V can dummy ifb macvlan vcan veth vlan ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                ;;
+                    STATE=FINISH
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    ;;
+
+                (link+*+type)
+                    __ip_match ANY -V can dummy ifb macvlan vcan veth vlan ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    ;;
 
                 (link+*+type+can)
-                                __ip_match ANY -R -V berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 \
-                                                     prop-seg restart restart-ms sample-point sjw tq triple-sampling ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (restart)       ;;
-                                    (bitrate)       STATE+=/NUM:1:1000000 ;;
-                                    (restart-ms)    STATE+=/NUMBER ;;
-                                    (tq)            STATE+=/NUMBER ;;
-                                    (sample-point)  STATE+=/FLOAT ;;  # SAMPLE-POINT
-                                    (phase-seg[12]|prop-seg) STATE+=/NUM:1:8 ;;
-                                    (sjw)           STATE+=/NUM:1:4 ;;
-                                    (berr-reporting|listen-only|loopback|one-shot|triple-sampling) STATE+=/ONOFF ;;
-                                esac
-                                ;;
+
+                    __ip_match ANY -R -V berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 \
+                                         prop-seg restart restart-ms sample-point sjw tq triple-sampling ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (restart)       ;;
+                        (bitrate)       STATE+=/NUM:1:1000000 ;;
+                        (restart-ms)    STATE+=/NUMBER ;;
+                        (tq)            STATE+=/NUMBER ;;
+                        (sample-point)  STATE+=/FLOAT ;;  # SAMPLE-POINT
+                        (phase-seg[12]|prop-seg) STATE+=/NUM:1:8 ;;
+                        (sjw)           STATE+=/NUM:1:4 ;;
+                        (berr-reporting|listen-only|loopback|one-shot|triple-sampling) STATE+=/ONOFF ;;
+                    esac
+                    ;;
                 (link+*+type+dummy)
-                                ;;
+                    ;;
                 (link+*+type+ifb)
-                                ;;
+                    ;;
                 (link+*+type+macvlan)
-                                ;;
+                    ;;
                 (link+*+type+vcan)
-                                ;;
+                    ;;
                 (link+*+type+veth)
-                                ;;
+                    ;;
                 (link+*+type+vlan)
-                                ;;
+                    ;;
 
-                (maddr)         __ip_match ANY -V show add delete list=show ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                case $_V in
-                                    (add|delete) ;;
-                                    (list|show)  ;;
-                                esac
-                                ;;
+                (maddr)
+                    __ip_match ANY -V show add delete list=show ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    case $_V in
+                        (add|delete) ;;
+                        (list|show)  ;;
+                    esac
+                    ;;
 
-                (maddr+*)       __ip_match ANY -R -V dev ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (dev) STATE+=/DEVICE ;;
-                                esac
-                                ;;
+                (maddr+*)
+                    __ip_match ANY -R -V dev ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (dev) STATE+=/DEVICE ;;
+                    esac
+                    ;;
 
-                (monitor)       __ip_match ANY -V all addr link maddr mroute neigh ntable route rule tunnel xfrm ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE=FINISH  # no more args
-                                ;;
+                (monitor)
+                    __ip_match ANY -V all addr link maddr mroute neigh ntable route rule tunnel xfrm ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE=FINISH  # no more args
+                    ;;
 
-                (mroute)        __ip_match ANY -V list=show show ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                case $_V in
-                                    (show|list) STATE+=+show/PREFIX0 ;;
-                                esac
-                                ;;
-                (mroute+show)   __ip_match ANY -V from iif ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (from)  STATE+=/PREFIX0 ;;
-                                    (iif)   STATE+=/DEVICE ;;
-                                esac
-                                ;;
+                (mroute)
+                    __ip_match ANY -V list=show show ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    case $_V in
+                        (show|list) STATE+=+show/PREFIX0 ;;
+                    esac
+                    ;;
+                (mroute+show)
+                    __ip_match ANY -V from iif ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (from)  STATE+=/PREFIX0 ;;
+                        (iif)   STATE+=/DEVICE ;;
+                    esac
+                    ;;
 
-                (neigh)         __ip_match ANY -V add change delete flush list=show replace show ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                case $_V in
-                                    (add|change|delete|replace) STATE+=/ADDR ;;
-                                    (flush|list|show) ;;
-                                esac
-                                ;;
+                (neigh)
+                    __ip_match ANY -V add change delete flush list=show replace show ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    case $_V in
+                        (add|change|delete|replace) STATE+=/ADDR ;;
+                        (flush|list|show) ;;
+                    esac
+                    ;;
 
-                (neigh+*)       __ip_match ANY -R -V dev lladdr nud to ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (dev)       STATE+=/DEVICE ;;
-                                    (lladdr)    STATE+=/LLADDR ;;
-                                    (nud)       STATE+=/NUDSTATE ;;
-                                    (to)        STATE+=/PREFIX0
-                                esac
-                                ;;
+                (neigh+*)
+                    __ip_match ANY -R -V dev lladdr nud to ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (dev)       STATE+=/DEVICE ;;
+                        (lladdr)    STATE+=/LLADDR ;;
+                        (nud)       STATE+=/NUDSTATE ;;
+                        (to)        STATE+=/PREFIX0
+                    esac
+                    ;;
 
-                (ntable)        __ip_match ANY -V change ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                ;;
+                (ntable)
+                    __ip_match ANY -V change ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    ;;
 
-                (route)         __ip_match ANY -V add append change delete flush get list show=list replace ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (add|append|change|replace) STATE+=+A/=dev/PREFIX0/route+R ;;
-                                    (delete)                    STATE+=+A/=dev/PREFIX0/route+R ;;
-                                    (get)                       STATE+=+get/ADDR   ;;
-                                    (flush|list|show)           STATE+=+L ;;
-                                esac
-                                ;;
+                (route)
+                    __ip_match ANY -V add append change delete flush get list show=list replace ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (add|append|change|replace) STATE+=+A/=dev/PREFIX0/route+R ;;
+                        (delete)                    STATE+=+A/=dev/PREFIX0/route+R ;;
+                        (get)                       STATE+=+get/ADDR   ;;
+                        (flush|list|show)           STATE+=+L ;;
+                    esac
+                    ;;
 
-                (route+R)       __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
-                                                  prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
-                                __ip_match_empty
-                                __ip_debug_parsing_state P4
-                                STATE=route+A
-                                ;;
+                (route+R)
+                    __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
+                                      prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
+                    __ip_match_empty
+                    __ip_debug_parsing_state P4
+                    STATE=route+A
+                    ;;
 
-                (route+A)       __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE default dev iif local==RTYPE multicast==RTYPE \
-                                                  nat==RTYPE oif=dev prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE \
-                                                  via weight ||
-                                __ip_match_failed
-                                case $_V in
-                                    (default)       STATE+= ;;
-                                    (via)           STATE+=/ADDR ;;
-                                    (dev|iif|oif)   STATE+=/DEVICE ;;
-                                    (weight)        STATE+=/NUMBER ;;
-                                    (blackhole)     STATE+=/PREFIX0 ;;
-                                    (broadcast)     STATE+=/PREFIX0 ;;
-                                    (local)         STATE+=/PREFIX0 ;;
-                                    (multicast)     STATE+=/PREFIX0 ;;
-                                    (nat)           STATE+=/PREFIX0 ;;
-                                    (prohibit)      STATE+=/PREFIX0 ;;
-                                    (throw)         STATE+=/PREFIX0 ;;
-                                    (unicast)       STATE+=/PREFIX0 ;;
-                                    (unreachable)   STATE+=/PREFIX0 ;;
-                                esac
-                                ;;
+                (route+A)
+                    __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE default dev iif local==RTYPE multicast==RTYPE \
+                                      nat==RTYPE oif=dev prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE \
+                                      via weight ||
+                    __ip_match_failed
+                    case $_V in
+                        (default)       STATE+= ;;
+                        (via)           STATE+=/ADDR ;;
+                        (dev|iif|oif)   STATE+=/DEVICE ;;
+                        (weight)        STATE+=/NUMBER ;;
+                        (blackhole)     STATE+=/PREFIX0 ;;
+                        (broadcast)     STATE+=/PREFIX0 ;;
+                        (local)         STATE+=/PREFIX0 ;;
+                        (multicast)     STATE+=/PREFIX0 ;;
+                        (nat)           STATE+=/PREFIX0 ;;
+                        (prohibit)      STATE+=/PREFIX0 ;;
+                        (throw)         STATE+=/PREFIX0 ;;
+                        (unicast)       STATE+=/PREFIX0 ;;
+                        (unreachable)   STATE+=/PREFIX0 ;;
+                    esac
+                    ;;
 
-                (route+L)       __ip_match ANY -V exact match proto root scope table type ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (exact)         STATE+=/PREFIX0   ;;
-                                    (match)         STATE+=/PREFIX0   ;;
-                                    (proto)         STATE+=/RTPROTO  ;;
-                                    (root)          STATE+=/PREFIX0   ;;
-                                    (scope)         STATE+=/SCOPE    ;;
-                                    (table)         STATE+=/TABLE+   ;;
-                                    (type)          STATE+=/RTYPE    ;;
-                                esac
-                                ;;
+                (route+L)
+                    __ip_match ANY -V exact match proto root scope table type ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (exact)         STATE+=/PREFIX0   ;;
+                        (match)         STATE+=/PREFIX0   ;;
+                        (proto)         STATE+=/RTPROTO  ;;
+                        (root)          STATE+=/PREFIX0   ;;
+                        (scope)         STATE+=/SCOPE    ;;
+                        (table)         STATE+=/TABLE+   ;;
+                        (type)          STATE+=/RTYPE    ;;
+                    esac
+                    ;;
 
-                (route+get)     __ip_match ANY -V from oif tos ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (from)          STATE+=/=iif/ADDR ;;
-                                    (dev|iif|oif)   STATE+=/DEVICE    ;;
-                                    (tos)           STATE+=/TOS       ;;
-                                esac
-                                ;;
+                (route+get)
+                    __ip_match ANY -V from oif tos ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (from)          STATE+=/=iif/ADDR ;;
+                        (dev|iif|oif)   STATE+=/DEVICE    ;;
+                        (tos)           STATE+=/TOS       ;;
+                    esac
+                    ;;
 
-                (route+P)     # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
-                                __ip_match ANY -V advmss cwnd dev equalize initcwnd metric mtu nexthop oif=dev proto realms rto_min \
-                                                  rtt rttvar scope src ssthresh table tos via weight window ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (advmss|weight)     STATE+=/NUMBER16 ;;
-                                    (cwnd|initcwnd|mtu) STATE+=/NUMBER32 ;;
-                                    (dev)               STATE+=/DEVICE   ;;
-                                    (equalize|onlink|pervasive)         ;;
-                                    (metric)            STATE+=/NUMBER31S ;;
-                                    (nexthop)           unset ${!__ip_seen_*} ;;  # reset the "already seen" list
-                                    (proto)             STATE+=/RTPROTO  ;;
-                                    (realms)            STATE+=/REALM    ;;  # TODO maybe this should be REALMPAIR?
-                                    (rto_min|rtt|rttvar) STATE+=/TIME    ;;
-                                    (scope)             STATE+=/SCOPE    ;;
-                                    (src|via)           STATE+=/ADDR     ;;
-                                    (ssthresh)          STATE+=/NUMBER   ;;
-                                    (table)             STATE+=/TABLE    ;;
-                                    (tos)               STATE+=/TOS      ;;
-                                    (window)            STATE+=/NUMBER8  ;;
-                                esac
-                                ;;
+                (route+P)
+                    # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
+                    __ip_match ANY -V advmss cwnd dev equalize initcwnd metric mtu nexthop oif=dev proto realms rto_min \
+                                      rtt rttvar scope src ssthresh table tos via weight window ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (advmss|weight)     STATE+=/NUMBER16 ;;
+                        (cwnd|initcwnd|mtu) STATE+=/NUMBER32 ;;
+                        (dev)               STATE+=/DEVICE   ;;
+                        (equalize|onlink|pervasive)         ;;
+                        (metric)            STATE+=/NUMBER31S ;;
+                        (nexthop)           unset ${!__ip_seen_*} ;;  # reset the "already seen" list
+                        (proto)             STATE+=/RTPROTO  ;;
+                        (realms)            STATE+=/REALM    ;;  # TODO maybe this should be REALMPAIR?
+                        (rto_min|rtt|rttvar) STATE+=/TIME    ;;
+                        (scope)             STATE+=/SCOPE    ;;
+                        (src|via)           STATE+=/ADDR     ;;
+                        (ssthresh)          STATE+=/NUMBER   ;;
+                        (table)             STATE+=/TABLE    ;;
+                        (tos)               STATE+=/TOS      ;;
+                        (window)            STATE+=/NUMBER8  ;;
+                    esac
+                    ;;
 
-                (rule)          __ip_match ANY -V add delete flush list show=list ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                STATE+=+$_V
-                                ;;
+                (rule)
+                    __ip_match ANY -V add delete flush list show=list ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    STATE+=+$_V
+                    ;;
 
-                (rule+list)     __ip_match ANY '# no more args allowed' ' ' ;;  # no args allowed
+                (rule+list)
+                    __ip_match ANY '# no more args allowed' ' ' ;;  # no args allowed
 
-                (rule+*)        __ip_match ANY -R -V dev from fwmark goto iif=dev lookup not pref prio prohibit realms reject table \
-                                                     to tos unreachable ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (dev)           STATE+=/DEVICE   ;;
-                                    (from|to)       STATE+=/PREFIX0  ;;
-                                    (fwmark)        STATE+=/FWMARK+MASK ;;
-                                    (goto|pref|prio) STATE+=/NUMBER  ;;
-                                    (lookup|table)  STATE+=/TABLE    ;;
-                                    (not|prohibit|reject|unreachable) ;;
-                                    (realms)        STATE+=/REALMPAIR ;;
-                                    (tos)           STATE+=/TOS      ;;
-                                esac
-                                ;;
+                (rule+*)
+                    __ip_match ANY -R -V dev from fwmark goto iif=dev lookup not pref prio prohibit realms reject table \
+                                         to tos unreachable ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (dev)           STATE+=/DEVICE   ;;
+                        (from|to)       STATE+=/PREFIX0  ;;
+                        (fwmark)        STATE+=/FWMARK+MASK ;;
+                        (goto|pref|prio) STATE+=/NUMBER  ;;
+                        (lookup|table)  STATE+=/TABLE    ;;
+                        (not|prohibit|reject|unreachable) ;;
+                        (realms)        STATE+=/REALMPAIR ;;
+                        (tos)           STATE+=/TOS      ;;
+                    esac
+                    ;;
 
-                (tunnel)        __ip_match ANY -V 6rd add change del delete=del list=show prl show ||
-                                __ip_match_failed
-                                STATE+=+$_V/=name
-                                ;;
+                (tunnel)
+                    __ip_match ANY -V 6rd add change del delete=del list=show prl show ||
+                    __ip_match_failed
+                    STATE+=+$_V/=name
+                    ;;
 
-                (tunnel+*)      case $expecting in
-                                    (*+6rd) __ip_match ANY -R -V 6rd-prefix 6rd-relay_prefix 6rd-reset ;;
-                                    (*+prl) __ip_match ANY -R -V prl-default prl-delete prl-nodefault ;;
-                                    (*) false ;;
-                                esac ||
-                                __ip_match ANY -R -V dev icsum ikey iseq local mode nopmtudisc==pmtudisc ocsum oif=dev okey oseq \
-                                                     pmtudisc remote tos ttl ||
-                                __ip_match_failed
-                                __ip_debug_parsing_state P4
-                                case $_V in
-                                    (icsum|iseq|ocsum|oseq|nopmtudisc|pmtudisc) ;;
-                                    (6rd-reset) ;;
-                                    (6rd-*|local|prl-*|remote)
-                                                    STATE+=/ADDR    ;;
-                                    (dev|oif)       STATE+=/DEVICE  ;;
-                                    (ikey|okey)     STATE+=/KEY     ;;
-                                    (mode)          STATE+=/TMODE   ;;
-                                    (name)          STATE+=/NAME    ;;
-                                    (tos)           STATE+=/TOS     ;;
-                                    (ttl)           STATE+=/TTL     ;;
-                                esac
-                                ;;
+                (tunnel+*)
+                    case $expecting in
+                        (*+6rd) __ip_match ANY -R -V 6rd-prefix 6rd-relay_prefix 6rd-reset ;;
+                        (*+prl) __ip_match ANY -R -V prl-default prl-delete prl-nodefault ;;
+                        (*) false ;;
+                    esac ||
+                    __ip_match ANY -R -V dev icsum ikey iseq local mode nopmtudisc==pmtudisc ocsum oif=dev okey oseq \
+                                         pmtudisc remote tos ttl ||
+                    __ip_match_failed
+                    __ip_debug_parsing_state P4
+                    case $_V in
+                        (icsum|iseq|ocsum|oseq|nopmtudisc|pmtudisc) ;;
+                        (6rd-reset) ;;
+                        (6rd-*|local|prl-*|remote)
+                                        STATE+=/ADDR    ;;
+                        (dev|oif)       STATE+=/DEVICE  ;;
+                        (ikey|okey)     STATE+=/KEY     ;;
+                        (mode)          STATE+=/TMODE   ;;
+                        (name)          STATE+=/NAME    ;;
+                        (tos)           STATE+=/TOS     ;;
+                        (ttl)           STATE+=/TTL     ;;
+                    esac
+                    ;;
 
-                (KEY)           __ip_match_addr -Finet || __ip_match NUM || __ip_match_failed ;;
-                (TOS)           __ip_match NUM -V                   || __ip_match ANY inherit || __ip_match_failed ;;
-                (TTL)           __ip_match NUM -V --min=1 --max=255 || __ip_match ANY inherit || __ip_match_failed ;;
+                (KEY)
+                    __ip_match_addr -Finet || __ip_match NUM || __ip_match_failed ;;
+                (TOS)
+                    __ip_match NUM -V                   || __ip_match ANY inherit || __ip_match_failed ;;
+                (TTL)
+                    __ip_match NUM -V --min=1 --max=255 || __ip_match ANY inherit || __ip_match_failed ;;
 
-                (TMODE)         __ip_match ANY ipip gre sit || __ip_match_failed ;;
+                (TMODE)
+                    __ip_match ANY ipip gre sit || __ip_match_failed ;;
 
-                (xfrm)          __ip_match ANY -V policy state monitor || __ip_match_failed
-                                STATE+=+$_V
-                                ;;
+                (xfrm)
+                    __ip_match ANY -V policy state monitor || __ip_match_failed
+                    STATE+=+$_V
+                    ;;
 
-                (xfrm+*)        __ip_match_failed
-                                ;; # TODO
+                (xfrm+*)
+                    __ip_match_failed
+                    ;; # TODO
 
-                (NAME)          __ip_match ANY "$cur " "$cur..." || __ip_match_failed ; __ip_seen_NAME=true ;;
-                (ADDR)          __ip_match_addr $save_family     || __ip_match_failed ;;
-                (MADDR)         __ip_match_addr $save_family -m  || __ip_match_failed ;;
-                (LLADDR)        __ip_match_addr -Flink           || __ip_match_failed ;;
-                (PREFIX0)       __ip_match_addr $save_family -pd || __ip_match_failed ; __ip_seen_PREFIX=true ;;
-                (PREFIX)        __ip_match_addr $save_family -p  || __ip_match_failed ; __ip_seen_PREFIX=true ;;
+                (NAME)
+                    __ip_match ANY "$cur " "$cur..." || __ip_match_failed ; __ip_seen_NAME=true ;;
+                (ADDR)
+                    __ip_match_addr $save_family     || __ip_match_failed ;;
+                (MADDR)
+                    __ip_match_addr $save_family -m  || __ip_match_failed ;;
+                (LLADDR)
+                    __ip_match_addr -Flink           || __ip_match_failed ;;
+                (PREFIX0)
+                    __ip_match_addr $save_family -pd || __ip_match_failed ; __ip_seen_PREFIX=true ;;
+                (PREFIX)
+                    __ip_match_addr $save_family -p  || __ip_match_failed ; __ip_seen_PREFIX=true ;;
 
-                (DEVICE)        __ip_match ANY -Vsave_device $( ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" ) ||
-                                __ip_match_failed ;;
-                (FWMARK+MASK)   case $cur in
-                                    (*/*/*) false ;;
-                                    (*)    __ip_match NUM -I'*/' --32bit ;;
-                                esac ||
-                                __ip_match_failed ;;
-                (LIFETIME)      __ip_match ANY forever ||
-                                __ip_match NUM --8bit ||
-                                __ip_match_failed ;;
+                (DEVICE)
+                    __ip_match ANY -Vsave_device $( ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" ) ||
+                    __ip_match_failed ;;
+                (FWMARK+MASK)
+                    case $cur in
+                        (*/*/*) false ;;
+                        (*)    __ip_match NUM -I'*/' --32bit ;;
+                    esac ||
+                    __ip_match_failed ;;
+                (LIFETIME)
+                    __ip_match ANY forever ||
+                    __ip_match NUM --8bit ||
+                    __ip_match_failed ;;
 
-                (NUDSTATE)      __ip_match ANY noarp permanent reachable stale || __ip_match_failed ;;
+                (NUDSTATE)
+                    __ip_match ANY noarp permanent reachable stale || __ip_match_failed ;;
 
-                (NUM:*:*)       max_num=${expecting#NUM:} ; min_num=${max_num%:*} max_num=${max_num#*:}
-                                __ip_match NUM --min=$min_num --max=$max_num || __ip_match_failed ;;
-                (NUM:*)         __ip_match NUM --max=${expecting##*:}        || __ip_match_failed ;;
-                (NUMBER)        __ip_match NUM                               || __ip_match_failed ;;
-                (NUMBER8)       __ip_match NUM --8bit                        || __ip_match_failed ;;
-                (NUMBER16)      __ip_match NUM --16bit                       || __ip_match_failed ;;
-                (NUMBER32)      __ip_match NUM --32bit                       || __ip_match_failed ;;
-                (NUMBER31S)     __ip_match NUM --signed32bit                 || __ip_match_failed ;;
-                (ONOFF)         __ip_match ANY on off                               || __ip_match_failed ;;
-                (QOSMAP)        case $cur in
-                                    (*[^0-9:]*|*:*:*) false ;;
-                                    (*)   __ip_match NUM -I'*:' ;;
-                                esac || __ip_match_failed ;;
-                (REALMPAIR)     case $cur in
-                                    (*/*/*) false ;;
-                                    (*)     __ip_match NUM -I'*/' --8bit ||
-                                            __ip_match ANY -C${cur#*/} $( __ip_slurp /etc/iproute2/rt_realms ) ;;
-                                esac ||
-                                __ip_match_failed ;;
-                (REALM)         __ip_match NUM --8bit ||
-                                __ip_match ANY $( __ip_slurp /etc/iproute2/rt_realms ) ||
-                                __ip_match_failed ;;
-                (SCOPE)         __ip_match NUM --8bit ||
-                                __ip_match ANY $( __ip_slurp /etc/iproute2/rt_scopes ) ||
-                                __ip_match_failed ;;
-                (LABEL)         [[ $save_device ]] && __ip_match ANY $save_device: $save_device:... || true ;;
-                (TABLE)         __ip_match NUM --8bit ||
-                                __ip_match ANY default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                                __ip_match_failed ;;
-                (TABLE+)        __ip_match NUM --max=255 --min=-2 ||
-                                __ip_match ANY all default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                                __ip_match_failed ;;
-                (RTYPE)         __ip_match ANY -R blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
-                                                  prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
-                                __ip_match_failed ;;
-                (RTPROTO)       __ip_match ANY -R boot==RTPROTO kernel==RTPROTO static==RTPROTO ||
-                                __ip_match NUM --8bit ||
-                                __ip_match_failed ;;
-                (TOS)           __ip_match ANY inherit ||
-                                __ip_match NUM --8bit ||
-                                __ip_match_failed ;;
+                (NUM:*:*)
+                    max_num=${expecting#NUM:} ; min_num=${max_num%:*} max_num=${max_num#*:}
+                    __ip_match NUM --min=$min_num --max=$max_num || __ip_match_failed ;;
+                (NUM:*)
+                    __ip_match NUM --max=${expecting##*:}        || __ip_match_failed ;;
+                (NUMBER)
+                    __ip_match NUM                               || __ip_match_failed ;;
+                (NUMBER8)
+                    __ip_match NUM --8bit                        || __ip_match_failed ;;
+                (NUMBER16)
+                    __ip_match NUM --16bit                       || __ip_match_failed ;;
+                (NUMBER32)
+                    __ip_match NUM --32bit                       || __ip_match_failed ;;
+                (NUMBER31S)
+                    __ip_match NUM --signed32bit                 || __ip_match_failed ;;
+                (ONOFF)
+                    __ip_match ANY on off                               || __ip_match_failed ;;
+                (QOSMAP)
+                    case $cur in
+                        (*[^0-9:]*|*:*:*) false ;;
+                        (*)   __ip_match NUM -I'*:' ;;
+                    esac || __ip_match_failed ;;
+                (REALMPAIR)
+                    case $cur in
+                        (*/*/*) false ;;
+                        (*)     __ip_match NUM -I'*/' --8bit ||
+                                __ip_match ANY -C${cur#*/} $( __ip_slurp /etc/iproute2/rt_realms ) ;;
+                    esac ||
+                    __ip_match_failed ;;
+                (REALM)
+                    __ip_match NUM --8bit ||
+                    __ip_match ANY $( __ip_slurp /etc/iproute2/rt_realms ) ||
+                    __ip_match_failed ;;
+                (SCOPE)
+                    __ip_match NUM --8bit ||
+                    __ip_match ANY $( __ip_slurp /etc/iproute2/rt_scopes ) ||
+                    __ip_match_failed ;;
+                (LABEL)
+                    [[ $save_device ]] && __ip_match ANY $save_device: $save_device:... || true ;;
+                (TABLE)
+                    __ip_match NUM --8bit ||
+                    __ip_match ANY default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
+                    __ip_match_failed ;;
+                (TABLE+)
+                    __ip_match NUM --max=255 --min=-2 ||
+                    __ip_match ANY all default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
+                    __ip_match_failed ;;
+                (RTYPE)
+                    __ip_match ANY -R blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
+                                      prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
+                    __ip_match_failed ;;
+                (RTPROTO)
+                    __ip_match ANY -R boot==RTPROTO kernel==RTPROTO static==RTPROTO ||
+                    __ip_match NUM --8bit ||
+                    __ip_match_failed ;;
+                (TOS)
+                    __ip_match ANY inherit ||
+                    __ip_match NUM --8bit ||
+                    __ip_match_failed ;;
 
-                (*)             __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur" ;;
+                (*)
+                    __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur" ;;
 
             esac  # }}}
 
