@@ -26,5 +26,5 @@ perl_opts=()
 for f in "${PerlFiles[@]}"
 do
     printf '\n\e[1;33;40m%s\e[m\n' "$f"
-    perl -c "${perl_opts[@]}" "$f" || exit
+    perl -Mwarnings=FATAL,all -c "${perl_opts[@]}" "$f" || exit
 done
