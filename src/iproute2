@@ -478,7 +478,7 @@ _ip() {
             return 1
         else
             __ip_debug "CHECK-$_w $*"
-            __ip_chk_$_w "$@" || return $? 
+            __ip_chk_$_w "$@" || return $?
             [[ -n $__set_var ]] && {
                 __ip_debug "SETVAR saving $_w '$__val' into $__set_var"
                 eval "$__set_var=\"\$__val\""
@@ -578,7 +578,7 @@ _ip() {
                                           -resolve    --resolve=-resolve       \
                                           -statistics --statistics=-statistics \
                                           -timestamp  --timestamp=-timestamp   \
-                                          -Version    --Version=-Version       
+                                          -Version    --Version=-Version
                             __ip_debug_parsing_state P4
                             case $_V in
                             (-family) STATE+=/FAMILY ;;
@@ -634,7 +634,7 @@ _ip() {
                             $__ip_seen_PREFIX || STATE+=/?PREFIX
                             ;;
 
-            (addrlabel)     
+            (addrlabel)
                             __ip_match ANY -V add del flush  list show=list ?=help help ||
                             __ip_match_failed
                             __ip_debug_parsing_state P4a $_V
