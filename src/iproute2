@@ -95,15 +95,15 @@ _ip() {
             (cluck "$@" 2>&1)
         elif [[ $( type -t caller ) = builtin ]]
         then
-            echo "$*"
+            printf '%s\n' "$*"
             local l d
             for (( l = 1 ; l < 20 ; l++ )) do
                 d=$( caller $l ) && [[ -n $d ]] || break
-                echo "    $d"
+                printf '    %s\n' "$d"
             done
-            echo
+            printf '\n'
         else
-            echo "$*"
+            printf '%s\n' "$*"
         fi >&3
     }
 
@@ -122,7 +122,7 @@ _ip() {
             l=${l%%'#'*}               # strip comments
             l=${l#"${l%%[^0-9]*} "}    # strip leading word comprised entirely of digits
             [[ -n $l ]] || continue
-            echo "$l"
+            printf '%s\n' "$l"
         done <$1
         return
     }
@@ -380,7 +380,7 @@ _ip() {
         local __val="${__cur##$__ignore_prefix}"
 
         __ip_debug "Completing address starting with '$__cur'; will accept" $(
-                        for w in ipv4 ipv6 prefix link ; do eval \$accept_$w && echo $w ; done
+                        for w in ipv4 ipv6 prefix link ; do eval \$accept_$w && printf '%s\n' $w ; done
                     )
 
         # Reject impossible things...
@@ -528,7 +528,7 @@ _ip() {
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\n' "${COMPREPLY[*]}"
             } >&3
-            echo -n >&3 "${COMP_VERBOSE_INIT:-$'\n################################\n'}"
+            printf >&3 %s "${COMP_VERBOSE_INIT:-$'\n################################\n'}"
         else
             # Otherwise, assuming that we're on an Xterm or compatible, display
             # debugging "above" the current line
@@ -541,27 +541,29 @@ _ip() {
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\e8' "${COMPREPLY[*]}"
             } >&3
-            echo -n >&3 $'\e[A\e[999I'"${COMP_VERBOSE_TINT}"$'\e[1J\e[5H'
+            printf >&3 '\e[A\e[999I%s\e[1J\e[5H' "${COMP_VERBOSE_TINT}"
         fi
-        echo >&3 "Completion START: ARGS=($*) WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD KEY=$COMP_KEY" \
-                                   "LINE=($COMP_LINE) POINT=$COMP_POINT TYPE=$COMP_TYPE WORDBREAKS=[${COMP_WORDBREAKS/$'\n'/\\n}]"
+        printf >&3 'Completion START: ARGS=(%s) WORDS=(%s) CWORD=%s KEY=%s LINE=(%s) POINT=%s TYPE=%s WORDBREAKS=[%s]\n' \
+                    "$*" "${COMP_WORDS[*]}" "$COMP_CWORD" "$COMP_KEY" \
+                    "$COMP_LINE" "$COMP_POINT" "$COMP_TYPE" \
+                    "${COMP_WORDBREAKS/$'\n'/\\n}"
 
         __ip__en() { (( cword_index >= COMP_CWORD-2 )) ; }
-        __ip_debug() { __ip__en && echo >&3 "Completion $*" ; }
+        __ip_debug() { __ip__en && printf >&3 'Completion %s\n' "$*" ; }
         __ip_debug_parsing_state() {
             __ip__en || return 0
             local tag=$1 ; shift
-            echo >&3 "Completion STATE $tag word[$cword_index]=$cur state=$STATE expecting=$expecting {$*}"
+            printf >&3 'Completion STATE %s word[%s]=%s state=%s expecting=%s {%s}\n' "$tag" "$cword_index" "$cur" "$STATE" "$expecting" "$*"
         }
-        __ip_debug_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
-        __ip_error() { echo >&3 "Completion ERROR $*" ; break 3 ; }
-        __ip_unexpected() { echo >&3 "Completion UNEXPECTED $*" ; }
-        __ip_warning() { echo >&3 "Completion WARNING $*" ; }
+        __ip_debug_unexpected() { printf >&3 'Completion UNEXPECTED %s\n' "$*" ; }
+        __ip_error() { printf >&3 'Completion ERROR %s\n' "$*" ; break 3 ; }
+        __ip_unexpected() { printf >&3 'Completion UNEXPECTED %s\n' "$*" ; }
+        __ip_warning() { printf >&3 'Completion WARNING %s\n' "$*" ; }
     else
         __ip_debug() { : ; }
         __ip_debug_parsing_state() { : ; }
         __ip_debug_unexpected() { : ; }
-        __ip_error() { local t="  $*" ; local l=${#t} ; echo -n >&2 $'\e[1K\e[33m'$t$'\e[39m\e['$l'D' ; break 3 ; }
+        __ip_error() { local t="  $*" ; local l=${#t} ; printf >&2 '\e[1K\e[33m%s\e[39m\e[%uD' "$t" "$l"; break 3 ; }
         __ip_unexpected() { : ; }
         __ip_warning() { : ; }
     fi
