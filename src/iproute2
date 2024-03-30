@@ -41,28 +41,23 @@ _ip() {
     local expecting=
     local __ip_seen_PREFIX=false
 
-    # Too hard to localize everything, so clean up upon return
-    # All functions named as __ip__cleanup* will be called in collation order.
-    # All functions and variables named as __ip_* will be unset
+    # Bash has no way to localize functions, and localizing variables is
+    # fraught, so upon return:
+    # 1. All other functions with names matching __ip__cleanup* will be called
+    #    in natural collation order; and then
+    # 2. All functions and variables with names matching __ip_* will be unset
+    #    (which includes this function, of course)
     __ip__cleanup() {
-        trap RETURN
         local __ip__c
-        local -a __ip__cc
-        while IFS=$' \t\n' read -ra __ip__cc <&3
+        local -a __ip__cc=()
+        while IFS=$' \t\n' read -ra _ _ __ip__c <&3
         do
-            for __ip__c in "${__ip__cc[@]}"
-            do
-                [[ $__ip__c = __ip__cleanup?* ]] && "$__ip__c"
-                [[ $__ip__c = __ip_* ]] && unset -f "$__ip__c"
-            done
+            [[ $__ip__c = __ip__cleanup?* ]] && "$__ip__c"
+            [[ $__ip__c = __ip_* ]] && __ip__cc+=( "$__ip__c" )
         done 3< <( declare -F )
-        for __ip__c in "${__ip_cleanup[@]}"; do "$__ip__c" ; unset -f "$__ip__c" ; done
+        unset -f "${__ip__cc[@]}"
         unset "${!__ip_@}"
-
-        unset -f __ip__cleanup
     }
-    __ip__cleanup
-    trap __ip__cleanup RETURN
 
     #
     # If the function "cluck" is defined, use it; otherwise display the given
