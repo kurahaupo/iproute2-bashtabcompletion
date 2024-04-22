@@ -48,13 +48,16 @@ _ip() {
     # 2. All functions and variables with names matching __ip_* will be unset
     #    (which includes this function, of course)
     __ip__cleanup() {
-        local __ip__c
         local -a __ip__cc=()
-        while IFS=$' \t\n' read -ra _ _ __ip__c <&3
+        readarray -t __ip__cc < <( declare -F )
+        __ip__cc=( "${__ip__cc[@]##*\ }" )
+        local __ip__c __ip__ci
+        for __ip__ci in "${!__ip__cc[@]}"
         do
+            __ip__c=${__ip__cc[__ip__ci]}
             [[ $__ip__c = __ip__cleanup?* ]] && "$__ip__c"
-            [[ $__ip__c = __ip_* ]] && __ip__cc+=( "$__ip__c" )
-        done 3< <( declare -F )
+            [[ $__ip__c = __ip_* ]] || unset "__ip__cc[__ip__ci]"
+        done
         unset -f "${__ip__cc[@]}"
         unset "${!__ip_@}"
     }
