@@ -33,6 +33,12 @@ then
     }
 fi
 
+################################################################################
+#
+# _ip - main entry point for programmable completion for the "ip" command,
+#       invoked indirectly by "complete -F _ip ... ip"
+#
+
 _ip() {
 
     [[  $true = 1 ]] || local -ri  true=1
