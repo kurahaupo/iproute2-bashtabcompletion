@@ -654,7 +654,9 @@ _ip() {
                                     -resolve    --resolve=-resolve                           \
                                     -statistics --statistics=-statistics                     \
                                     -timestamp  --timestamp=-timestamp                       \
-                                    -Version    --Version=-Version
+                                    -Version    --Version=-Version ||
+                    { __ip_match_final && break ; } ||
+                    { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
                     case $_V in
                         (-family)   STATE+=/FAMILY ;;
