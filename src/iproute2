@@ -1422,6 +1422,8 @@ _ip() {
 
                 (*)
                     __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur"
+                    __ip__cleanup
+                    return
                     ;;
 
             esac    # }}}
