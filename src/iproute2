@@ -29,7 +29,7 @@ then
     readarray() {
         [[ $1 = -* ]] && shift  # skip over -t
         local __ra_a=$1 __ra_n=0
-        while read -r "$__ra_a[$((__ra_n++))]" ; do :; done
+        while read -r "$__ra_a[$(( __ra_n++ ))]" ; do :; done
     }
 fi
 
@@ -46,8 +46,8 @@ _ip() {
 
     case $COMP_TYPE in
         (63) (( ++__ip_comp_count >= 3 )) && COMP_TYPE=best ;;
-        (9)  (( __ip_comp_count=1 )) ;;
-        (*)  (( __ip_comp_count=0 )) ;;
+        (9)  (( __ip_comp_count = 1 )) ;;
+        (*)  (( __ip_comp_count = 0 )) ;;
     esac
     COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
 
@@ -97,7 +97,7 @@ _ip() {
         then
             echo "$*"
             local l d
-            for (( l=1 ; l<20 ; l++ )) do
+            for (( l = 1 ; l < 20 ; l++ )) do
                 d=$( caller $l ) && [[ -n $d ]] || break
                 echo "    $d"
             done
@@ -176,9 +176,9 @@ _ip() {
         if (( ${#__neg} & 1 ))
         then
             case $__min:$__max in
-                (:?*)   ((__min=-__max)) ; __max= ;;
-                (*?:)   ((__max=-__min)) ; __min= ;;
-                (*?:?*) eval "(( __min=-($__max), __min=-($__min) )) " ;;
+                (:?*)   (( __min = -__max )) ; __max= ;;
+                (*?:)   (( __max = -__min )) ; __min= ;;
+                (*?:?*) eval "(( __min = -__max, __min = -($(( __min ))) )) " ;;
             esac
         fi
 
@@ -201,18 +201,18 @@ _ip() {
 
         (( __offset = __i * __radix ))
         while
-            (( __min_digit = (${#__min}==0 || __min < __offset ? 0 : __min - __offset),
-               __max_digit = (${#__max}==0 || __max >= __offset+__radix ? __radix-1 : __max - __offset ) ))
+            (( __min_digit = (${#__min} == 0 || __min < __offset ? 0 : __min - __offset),
+               __max_digit = (${#__max} == 0 || __max >= __offset+__radix ? __radix-1 : __max - __offset ) ))
             (( __min_digit >= __radix ))
         do
             __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max)" \
                                   "-> (min_digit=$__min_digit max_digit=$__max_digit) RETRY"
-            (( __min/=__radix, __max/=__radix ))
+            (( __min /= __radix, __max /= __radix ))
         done
         __ip_debug "MATCHNUM: $__cur->$__val->$__i radix=$__radix offset=$__offset (min=$__min max=$__max)" \
                               "-> (min_digit=$__min_digit max_digit=$__max_digit)"
 
-        for ((__i=__min_digit;__i<=__max_digit;++__i)) do
+        for (( __i = __min_digit ; __i <= __max_digit ; ++__i )) do
             COMPREPLY=( "${COMPREPLY[@]}" "${__cur}${__digits[__i]}" )
         done
     }
@@ -396,7 +396,7 @@ _ip() {
             return 1
         fi
 
-        if ((cword_index==COMP_CWORD))
+        if (( cword_index == COMP_CWORD ))
         then
             __ip_debug "EXPAND-ADDR $*"
             __ip_exp_ADDR "$@"
@@ -418,7 +418,7 @@ _ip() {
     # match set now has to be followed by three lines, like this usage:
     #
     #   [other matches] || ...
-    #   { ((__optional)) && __ip_pop_state && continue ; } || ...
+    #   { (( __optional )) && __ip_pop_state && continue ; } || ...
     #   { __ip_match_final && break ; } ||
     #   { __ip_match_failed && break 2 ; }
     #
@@ -434,14 +434,14 @@ _ip() {
         #   'decrement cword_index and continue' will cause the match loop will
         #   start over, testing the same word against the previous
         #   non-terminal, adding to the possible completions computed so far
-        ((--cword_index, 1))    # true
+        (( --cword_index, 1 ))  # true
     }
 
     #
     # If we are on the target word, then "succeed"
     #
     __ip_match_final() {
-        ((cword_index==COMP_CWORD)) || return 1
+        (( cword_index == COMP_CWORD )) || return 1
         __ip_debug_parsing_state "MATCH-LAST $expecting"
         true
     }
@@ -479,10 +479,10 @@ _ip() {
         while [[ $1 = -* ]]
         do
             case $1 in
-                ( --[0-9]*bit )     (( _p=${1//[^0-9]/}, __min=0, __max=(1<<_p)-1)) ;;
+                ( --[0-9]*bit )     (( _p = ${1//[^0-9]/},   __min = 0, __max = (1<<_p)-1 )) ;;
                 ( --max*=* )        __max=${1#--*=} ;;
                 ( --min*=* )        __min=${1#--*=} ;;
-                ( --s*[0-9]*bit )   (( _p=${1//[^0-9]/}-1, __min=-1<<_p, __max=(1<<_p)-1)) ;;
+                ( --s*[0-9]*bit )   (( _p = ${1//[^0-9]/}-1, __min = -1<<_p, __max = (1<<_p)-1 )) ;;
                 ( -A )              __radix=auto ;;
                 ( -B?* )            __radix=${1#-?} ;;
                 ( -I* )             __ignore_prefix=${1#-?} ;;
@@ -499,7 +499,7 @@ _ip() {
         local __val="${__cur##$__ignore_prefix}"
 
         # Need to look at how _getword works
-        if ((cword_index==COMP_CWORD))
+        if (( cword_index == COMP_CWORD ))
         then
             __ip_debug "EXPAND-$_w $*"
             __ip_exp_$_w "$@"
@@ -546,7 +546,7 @@ _ip() {
         echo >&3 "Completion START: ARGS=($*) WORDS=(${COMP_WORDS[*]}) CWORD=$COMP_CWORD KEY=$COMP_KEY" \
                                    "LINE=($COMP_LINE) POINT=$COMP_POINT TYPE=$COMP_TYPE WORDBREAKS=[${COMP_WORDBREAKS/$'\n'/\\n}]"
 
-        __ip__en() { ((cword_index>=COMP_CWORD-2)) ; }
+        __ip__en() { (( cword_index >= COMP_CWORD-2 )) ; }
         __ip_debug() { __ip__en && echo >&3 "Completion $*" ; }
         __ip_debug_parsing_state() {
             __ip__en || return 0
@@ -569,9 +569,9 @@ _ip() {
     local __perform_expansion=false
     for STATE in START ; do  # {{{
         # singleton outer "loop", so that "break 2" works in the inner loop
-        for (( cword_index=1 ; cword_index<=COMP_CWORD ; cword_index++ )) do  # {{{
+        for (( cword_index = 1 ; cword_index <= COMP_CWORD ; cword_index++ )) do    # {{{
 
-            ((cword_index==COMP_CWORD)) && __perform_expansion=true
+            (( cword_index == COMP_CWORD )) && __perform_expansion=true
             cur=${COMP_WORDS[cword_index]}
 
             __ip_debug_parsing_state P1
@@ -632,7 +632,7 @@ _ip() {
 
                 (FAMILY)
                     __ip_match ANY -V dnet inet inet6 ipx link ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -641,7 +641,7 @@ _ip() {
 
                 (addr)
                     __ip_match ANY -V add change delete flush list=show monitor replace show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -661,7 +661,7 @@ _ip() {
                         (delete)             __ip_match ANY -R -V dev ;;
                         (*) false ;;
                     esac ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -680,7 +680,7 @@ _ip() {
                 (addrlabel)
 
                     __ip_match ANY -V add del flush  list show=list ?=help help ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4a $_V
@@ -688,14 +688,14 @@ _ip() {
                     ;;
 
                 (addrlabel+list)
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (addrlabel+*)
                     __ip_match ANY -V -R prefix dev label ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4b $_V
@@ -708,7 +708,7 @@ _ip() {
 
                 (link)
                     __ip_match ANY -V add delete list=show ls=show set show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -721,7 +721,7 @@ _ip() {
 
                 (link+add)
                     __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -736,7 +736,7 @@ _ip() {
 
                 (link+delete)
                     __ip_match ANY -R -V addr address=addr broadcast link mtu name txqueuelen ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -749,7 +749,7 @@ _ip() {
                 (link+set)
                     __ip_match ANY -V addr address=addr alias allmulticast arp broadcast down dynamic mtu multicast name \
                                       netns promisc trailers txqueuelen up vf ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -769,7 +769,7 @@ _ip() {
                 (link+set+vf)
 
                     __ip_match ANY -R -V mac qos rate vlan ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -783,7 +783,7 @@ _ip() {
 
                 (link+set+VLAN)
                     __ip_match ANY -R -V id gvrp loose_binding reorder_hdr ingress-qos-map egress-qos-map ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -796,7 +796,7 @@ _ip() {
 
                 (link+show|link+list)
                     STATE=FINISH
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -804,7 +804,7 @@ _ip() {
 
                 (link+*+type)
                     __ip_match ANY -V can dummy ifb macvlan vcan veth vlan ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -814,7 +814,7 @@ _ip() {
                 (link+*+type+can)
                     __ip_match ANY -R -V berr-reporting bitrate listen-only loopback one-shot phase-seg1 phase-seg2 \
                                          prop-seg restart restart-ms sample-point sjw tq triple-sampling ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -850,7 +850,7 @@ _ip() {
 
                 (maddr)
                     __ip_match ANY -V show add delete list=show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -863,7 +863,7 @@ _ip() {
 
                 (maddr+*)
                     __ip_match ANY -R -V dev ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -874,7 +874,7 @@ _ip() {
 
                 (monitor)
                     __ip_match ANY -V all addr link maddr mroute neigh ntable route rule tunnel xfrm ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -883,7 +883,7 @@ _ip() {
 
                 (mroute)
                     __ip_match ANY -V list=show show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -895,7 +895,7 @@ _ip() {
 
                 (mroute+show)
                     __ip_match ANY -V from iif ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -907,7 +907,7 @@ _ip() {
 
                 (neigh)
                     __ip_match ANY -V add change delete flush list=show replace show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -920,7 +920,7 @@ _ip() {
 
                 (neigh+*)
                     __ip_match ANY -R -V dev lladdr nud to ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -934,7 +934,7 @@ _ip() {
 
                 (ntable)
                     __ip_match ANY -V change ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -943,7 +943,7 @@ _ip() {
 
                 (route)
                     __ip_match ANY -V add append change delete flush get list show=list replace ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -967,7 +967,7 @@ _ip() {
                     __ip_match ANY -V blackhole==RTYPE broadcast==RTYPE default dev iif local==RTYPE multicast==RTYPE \
                                       nat==RTYPE oif=dev prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE \
                                       via weight ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     case $_V in
@@ -989,7 +989,7 @@ _ip() {
 
                 (route+L)
                     __ip_match ANY -V exact match proto root scope table type ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1006,7 +1006,7 @@ _ip() {
 
                 (route+get)
                     __ip_match ANY -V from oif tos ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1021,7 +1021,7 @@ _ip() {
                     # ROUTE -> NODE_SPEC -> [RTYPE] PREFIX
                     __ip_match ANY -V advmss cwnd dev equalize initcwnd metric mtu nexthop oif=dev proto realms rto_min \
                                       rtt rttvar scope src ssthresh table tos via weight window ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1046,7 +1046,7 @@ _ip() {
 
                 (rule)
                     __ip_match ANY -V add delete flush list show=list ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1059,7 +1059,7 @@ _ip() {
                 (rule+*)
                     __ip_match ANY -R -V dev from fwmark goto iif=dev lookup not pref prio prohibit realms reject table \
                                          to tos unreachable ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1077,7 +1077,7 @@ _ip() {
 
                 (tunnel)
                     __ip_match ANY -V 6rd add change del delete=del list=show prl show ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     STATE+=+$_V/=name
@@ -1091,7 +1091,7 @@ _ip() {
                     esac ||
                     __ip_match ANY -R -V dev icsum ikey iseq local mode nopmtudisc==pmtudisc ocsum oif=dev okey oseq \
                                          pmtudisc remote tos ttl ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P4
@@ -1112,7 +1112,7 @@ _ip() {
                 (KEY)
                     __ip_match_addr -Finet ||
                     __ip_match NUM ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1120,7 +1120,7 @@ _ip() {
                 (TOS)
                     __ip_match NUM -V ||
                     __ip_match ANY inherit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1128,35 +1128,35 @@ _ip() {
                 (TTL)
                     __ip_match NUM -V --min=1 --max=255 ||
                     __ip_match ANY inherit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (TMODE)
                     __ip_match ANY ipip gre sit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (xfrm)
                     __ip_match ANY -V policy state monitor ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     STATE+=+$_V
                     ;;
 
                 (xfrm+*)
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;; # TODO
 
                 (NAME)
                     __ip_match ANY "$cur " "$cur..." ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_seen_NAME=true
@@ -1164,28 +1164,28 @@ _ip() {
 
                 (ADDR)
                     __ip_match_addr $save_family ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (MADDR)
                     __ip_match_addr $save_family -m ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (LLADDR)
                     __ip_match_addr -Flink ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (PREFIX0)
                     __ip_match_addr $save_family -pd ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_seen_PREFIX=true
@@ -1193,7 +1193,7 @@ _ip() {
 
                 (PREFIX)
                     __ip_match_addr $save_family -p ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     __ip_seen_PREFIX=true
@@ -1201,7 +1201,7 @@ _ip() {
 
                 (DEVICE)
                     __ip_match ANY -Vsave_device $( ip -o link list | sed -e "s/^[0-9]*: //; s/: .*//; /^wmaster/d" ) ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1211,7 +1211,7 @@ _ip() {
                         (*/*/*) false ;;
                         (*)    __ip_match NUM -I'*/' --32bit ;;
                     esac ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1219,14 +1219,14 @@ _ip() {
                 (LIFETIME)
                     __ip_match ANY forever ||
                     __ip_match NUM --8bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUDSTATE)
                     __ip_match ANY noarp permanent reachable stale ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1234,56 +1234,56 @@ _ip() {
                 (NUM:*:*)
                     max_num=${expecting#NUM:} ; min_num=${max_num%:*} max_num=${max_num#*:}
                     __ip_match NUM --min=$min_num --max=$max_num ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUM:*)
                     __ip_match NUM --max=${expecting##*:} ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUMBER)
                     __ip_match NUM ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUMBER8)
                     __ip_match NUM --8bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUMBER16)
                     __ip_match NUM --16bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUMBER32)
                     __ip_match NUM --32bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (NUMBER31S)
                     __ip_match NUM --signed32bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (ONOFF)
                     __ip_match ANY on off ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1293,7 +1293,7 @@ _ip() {
                         (*[^0-9:]*|*:*:*) false ;;
                         (*)   __ip_match NUM -I'*:' ;;
                     esac ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1304,7 +1304,7 @@ _ip() {
                         (*)     __ip_match NUM -I'*/' --8bit ||
                                 __ip_match ANY -C${cur#*/} $( __ip_slurp /etc/iproute2/rt_realms ) ;;
                     esac ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1312,7 +1312,7 @@ _ip() {
                 (REALM)
                     __ip_match NUM --8bit ||
                     __ip_match ANY $( __ip_slurp /etc/iproute2/rt_realms ) ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1320,7 +1320,7 @@ _ip() {
                 (SCOPE)
                     __ip_match NUM --8bit ||
                     __ip_match ANY $( __ip_slurp /etc/iproute2/rt_scopes ) ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1334,7 +1334,7 @@ _ip() {
                 (TABLE)
                     __ip_match NUM --8bit ||
                     __ip_match ANY default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1342,7 +1342,7 @@ _ip() {
                 (TABLE+)
                     __ip_match NUM --max=255 --min=-2 ||
                     __ip_match ANY all default local main $( __ip_slurp /etc/iproute2/rt_tables ) ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1350,7 +1350,7 @@ _ip() {
                 (RTYPE)
                     __ip_match ANY -R blackhole==RTYPE broadcast==RTYPE local==RTYPE multicast==RTYPE nat==RTYPE \
                                       prohibit==RTYPE throw==RTYPE unicast==RTYPE unreachable==RTYPE ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1358,7 +1358,7 @@ _ip() {
                 (RTPROTO)
                     __ip_match ANY -R boot==RTPROTO kernel==RTPROTO static==RTPROTO ||
                     __ip_match NUM --8bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1366,7 +1366,7 @@ _ip() {
                 (TOS)
                     __ip_match ANY inherit ||
                     __ip_match NUM --8bit ||
-                    { ((__optional)) && __ip_pop_state && continue ; } ||
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
@@ -1382,14 +1382,14 @@ _ip() {
 
         __ip_debug "COMPREPLY=[${COMPREPLY[*]}] (after compgen)"
 
-        ((${#COMPREPLY[@]} == 0)) && __ip_warning "No matches for '$cur'"
+        (( ${#COMPREPLY[@]} == 0 )) && __ip_warning "No matches for '$cur'"
 
         # completion treats some punctuation as if they were word-separators, and appends to current word rather than replacing it
         if [[ -n "$COMP_WORDBREAKS" && $cur = *[$COMP_WORDBREAKS]* ]]
         then
             local rword_index
             cur="${cur%"${cur##*[$COMP_WORDBREAKS]}"}"
-            for ((rword_index=0 ; rword_index<${#COMPREPLY[@]} ; rword_index++ )) do
+            for (( rword_index = 0 ; rword_index < ${#COMPREPLY[@]} ; rword_index++ )) do
                 COMPREPLY[rword_index]="${COMPREPLY[rword_index]#"$cur"}"
             done
         fi
