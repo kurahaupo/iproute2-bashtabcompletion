@@ -17,6 +17,22 @@
 # to disable.
 #
 
+################################################################################
+#
+# Bash version features
+#
+# v4.0  added 'readarray', so provide slower implementation for older versions
+#
+
+if (( BASH_VERSINFO[0] < 4 ))
+then
+    readarray() {
+        [[ $1 = -* ]] && shift  # skip over -t
+        local __ra_a=$1 __ra_n=0
+        while read -r "$__ra_a[$((__ra_n++))]" ; do :; done
+    }
+fi
+
 _ip() {
 
     [[  $true = 1 ]] || local -ri  true=1
