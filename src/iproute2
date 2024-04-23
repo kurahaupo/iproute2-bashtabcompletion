@@ -263,7 +263,7 @@ _ip() {
         # TODO Use a better algorithm here
 
         local __i
-        (( __i = $__radix#$__val ))
+        (( __i = $__radix#0$__val ))
 
         (( __min <= __i && __i <= __max )) && COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
 
