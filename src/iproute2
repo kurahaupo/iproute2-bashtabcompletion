@@ -113,7 +113,8 @@ _ip() {
     #
     __ip_slurp() {
         local l
-        while read l
+        while
+            IFS= read -r l
         do  l=${l//$'\t'/' '}               # squash tabs and spaces
             l=${l//'                '/' '}  # ''
             l=${l//'        '/' '}          # ''
@@ -123,7 +124,7 @@ _ip() {
             l=${l#"${l%%[^0-9]*} "}         # strip leading word comprised entirely of digits
             [[ -n $l ]] || continue
             printf '%s\n' "$l"
-        done <$1
+        done < $1
         return
     }
 
