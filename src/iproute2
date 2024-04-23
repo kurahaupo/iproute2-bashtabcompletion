@@ -570,9 +570,6 @@ _ip() {
             printf >&7 'Completion STATE %s word[%s]=%s expecting=%s and-then=%s {%s}\n' \
                         "$tag" "$cword_index" "$cur" "$expecting" "$STATE" "$*"
         }
-        __ip_debug_unexpected() {
-            printf >&7 'Completion UNEXPECTED %s\n' "$*"
-        }
         __ip_error() {
             printf >&7 'Completion ERROR %s\n' "$*"
             break 3
@@ -586,7 +583,6 @@ _ip() {
     else
         __ip_debug() { : ; }
         __ip_debug_parsing_state() { : ; }
-        __ip_debug_unexpected() { : ; }
         __ip_error() {
             local t="  $*"
             local l=${#t}
