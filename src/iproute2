@@ -128,6 +128,7 @@ _ip() {
         return
     }
 
+    ################################################################################
     #
     # The __ip_match* family of functions attempt to match various patterns
     #
@@ -139,9 +140,76 @@ _ip() {
     # The only time they return "true" is when they have *the only* possible match,
     # and that generally means only for non-focus words.
     #
-    # __ip_match NUM [--[signed-]N-bit] [--max=N] [--min=N]
-    #                   [-A | -Bauto | -BN]
-    #                   [-Iprefix] [-Ssuffix] [-V[varname]]
+    ################################################################################
+
+    #
+    # __ip_match CUR
+    #
+    # Accept the current word unconditionally
+    #
+
+    __ip_chk_CUR() {
+        true
+    }
+
+    __ip_exp_CUR() {
+        COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
+    }
+
+    #
+    # __ip_match ANY [-R[KEY]] [-S[SUFFIX]] [-V[VARNAME]] [MATCH-LIST...]
+    #
+    # The MATCH-LIST elements are of the form [MATCH=]TOKEN or MATCH=[TOKEN]=GROUP.
+    # The TOKEN is included in COMPREPLY (which means it may replace a partially
+    # typed ALIAS); GROUP is used to set the -V parameter (if set).
+    #
+
+    __ip_chk_ANY() {
+        #__ip_debug "CHECK seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
+        for _p do
+            _t="${_p%%=*}"
+            [[ $_t = "$__val"* ]] || continue
+            _p="${_p#*=}"
+            (( __skip_seen )) && {
+                _q="${_p#*=}"
+                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
+                #__ip_debug "Remembering that $_p has been seen (setting $_q=true)"
+                (( $_q = true ))
+            }
+            _p="${_p%%=*}"
+            _p="${_p:-$_t}"
+            __val="$_p"
+            return 0
+        done
+        return 1
+    }
+
+    __ip_exp_ANY() {
+        #__ip_debug "MATCH seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
+        for _p do
+            _t="${_p%%=*}"
+            [[ $_t = "$__val"* ]] || continue
+            _p="${_p#*=}"
+            (( __skip_seen )) && {
+                _q="${_p#*=}"
+                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
+                [[ -n ${!_q} ]] && continue
+            }
+            _p="${_p%%=*}"
+            _p="${_p:-$_t}"
+            COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
+            #[[ $COMP_TYPE = best ]] && return 0    # Unfortunately this doesn't get used;
+                                                    # after the first tab-key, the shell will always show a list, even if it (now)
+                                                    # has only one member
+        done
+    }
+
+    #
+    # __ip_match NUM [ [--max=N] [--min=N] | --[signed-]N-bit ]
+    #                [-A | -Bauto | -BN]
+    #                [-Iprefix] [-Ssuffix]
+    #                [-V[varname]]
+    #
 
     __ip_chk_NUM() {
         __ip_debug "CHECKNUM $*"
@@ -219,52 +287,10 @@ _ip() {
     }
 
     #
-    # __ip_match ANY [-R[KEY]] [-S[SUFFIX]] [-V[VARNAME]] [MATCH-LIST...]
+    # __ip_match ADDR [-0|-4|-6]
+    #                [-Iprefix] [-Ssuffix]
+    #                [-V[varname]]
     #
-    # The MATCH-LIST elements are of the form [MATCH=]TOKEN or MATCH=[TOKEN]=GROUP.
-    # The TOKEN is included in COMPREPLY (which means it may replace a partially
-    # typed ALIAS); GROUP is used to set the -V parameter (if set).
-    #
-
-    __ip_chk_ANY() {
-        #__ip_debug "CHECK seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
-        for _p do
-            _t="${_p%%=*}"
-            [[ $_t = "$__val"* ]] || continue
-            _p="${_p#*=}"
-            (( __skip_seen )) && {
-                _q="${_p#*=}"
-                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
-                #__ip_debug "Remembering that $_p has been seen (setting $_q=true)"
-                (( $_q = true ))
-            }
-            _p="${_p%%=*}"
-            _p="${_p:-$_t}"
-            __val="$_p"
-            return 0
-        done
-        return 1
-    }
-
-    __ip_exp_ANY() {
-        #__ip_debug "MATCH seen=$__skip_seen seen_pref=$__seen_pref set_var=$__set_var val=$__val WORDS=($*)"
-        for _p do
-            _t="${_p%%=*}"
-            [[ $_t = "$__val"* ]] || continue
-            _p="${_p#*=}"
-            (( __skip_seen )) && {
-                _q="${_p#*=}"
-                _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
-                [[ -n ${!_q} ]] && continue
-            }
-            _p="${_p%%=*}"
-            _p="${_p:-$_t}"
-            COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
-            #[[ $COMP_TYPE = best ]] && return 0    # Unfortunately this doesn't get used;
-                                                    # after the first tab-key, the shell will always show a list, even if it (now)
-                                                    # has only one member
-        done
-    }
 
     __ip_chk_ADDR() {
         (( accept_default )) && [[ default = "$__val"* ]] && return
@@ -460,14 +486,6 @@ _ip() {
         __ip_debug_parsing_state "MATCH-FAILED $expecting"
         __ip_cluck -x -s -S0 "MATCH-FAILED $expecting BACKTRACE"
         true
-    }
-
-    __ip_chk_CUR() {
-        true
-    }
-
-    __ip_exp_CUR() {
-        COMPREPLY=( "${COMPREPLY[@]}" "$__cur$__suffix" )
     }
 
     __ip_match() {
