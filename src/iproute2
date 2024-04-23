@@ -231,11 +231,11 @@ _ip() {
             _t="${_p%%=*}"
             [[ $_t = "$__val"* ]] || continue
             _p="${_p#*=}"
-            $__skip_seen && {
+            (( __skip_seen )) && {
                 _q="${_p#*=}"
                 _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
                 #__ip_debug "Remembering that $_p has been seen (setting $_q=true)"
-                eval $_q=true
+                (( $_q = true ))
             }
             _p="${_p%%=*}"
             _p="${_p:-$_t}"
@@ -251,7 +251,7 @@ _ip() {
             _t="${_p%%=*}"
             [[ $_t = "$__val"* ]] || continue
             _p="${_p#*=}"
-            $__skip_seen && {
+            (( __skip_seen )) && {
                 _q="${_p#*=}"
                 _q="$__seen_pref${_q//[^_0-9a-zA-Z]/__}"
                 [[ -n ${!_q} ]] && continue
@@ -266,25 +266,24 @@ _ip() {
     }
 
     __ip_chk_ADDR() {
-        $accept_prefix && [[ $__val = */* && $__val != */*[^0-9]* ]] && __val=${__val%/*}
-        { $accept_default && [[ default = "$__val"* ]] ; } ||
-        { $accept_ipv6   && [[ $__val = *::* || $__val = *:*:*:*:*:*:*:* || $__val = *:*:*:*:*:*:*.*.*.* ]] ; } ||
-        { $accept_ipv4   && [[ $__val = *.*.*.* && $__val != *:* ]] ; } ||
-        { $accept_link   && [[ $__val = ??:??:??:??:??:?? ]] ; } || {
-            __ip_warning "Cannot match '$__val' as requested type of address"
-            return 1
-        }
+        (( accept_default )) && [[ default = "$__val"* ]] && return
+        (( accept_prefix  )) && [[ $__val = */* && $__val != */*[^0-9]* ]] && __val=${__val%/*}
+        (( accept_ipv6    )) && [[ $__val = *::* || $__val = *:*:*:*:*:*:*:* || $__val = *:*:*:*:*:*:*.*.*.* ]] && return
+        (( accept_ipv4    )) && [[ $__val = *.*.*.* && $__val != *:* ]] && return
+        (( accept_link    )) && [[ $__val = ??:??:??:??:??:?? ]] && return
+        __ip_warning "Cannot match '$__val' as requested type of address"
+        return 1
     }
 
     __ip_exp_ADDR() {
         # Accept "default" keyword, if appropriate
-        if $accept_default
+        if (( accept_default ))
         then
             __ip_match ANY default
             return
         fi
 
-        if $accept_prefix
+        if (( accept_prefix ))
         then
             __ip_debug "Looking for prefix"
             case $__val in
@@ -298,7 +297,7 @@ _ip() {
             esac
         fi
 
-        if $accept_link
+        if (( accept_link ))
         then
             __ip_debug "Looking for link-layer MAC (Ethernet) address"
             case :$__val in
@@ -309,7 +308,7 @@ _ip() {
             esac
         fi
 
-        if $accept_ipv6
+        if (( accept_ipv6 ))
         then
             __ip_debug "Looking for IPv6 address"
 
@@ -336,7 +335,7 @@ _ip() {
 
         fi
 
-        if $accept_ipv4
+        if (( accept_ipv4 ))
         then
             __ip_debug "Looking for IPv4 address"
             case $__val in
@@ -382,7 +381,7 @@ _ip() {
         __ip_debug "Completing address starting with '$__cur'; will accept" $(
                         for w in ipv4 ipv6 prefix link
                         do
-                            eval \$accept_$w && printf ' %s' "$w"
+                            (( accept_$w )) && printf ' %s' "$w"
                         done
                     )
 
@@ -698,7 +697,7 @@ _ip() {
                         (scope)                     STATE+=/SCOPE    ;;
                         (deprecated|dynamic|home|nodad|permanent|primary|secondary|tentative) ;;
                     esac
-                    $__ip_seen_PREFIX || STATE+=/?PREFIX
+                    (( ! __ip_seen_PREFIX )) && STATE+=/?PREFIX
                     ;;
 
                 (addrlabel)
