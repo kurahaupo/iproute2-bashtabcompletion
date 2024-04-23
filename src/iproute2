@@ -636,7 +636,7 @@ _ip() {
 
             [[ $expecting = '?'* ]] && __optional=1 expecting=${expecting#'?'}
 
-            __ip_debug_parsing_state P3 ${want:+want=$want} ${__optional:+empty=$__optional}
+            __ip_debug_parsing_state P3 ${want:+want=$want} ${__optional:+optional=$__optional}
 
             case $expecting in  # {{{
 
