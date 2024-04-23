@@ -1,0 +1,17 @@
+PRE-COMMIT CHECKING.
+
+To activate, in the root of the repo run:
+    ln -svf ../../.git.precommit.d/pre-commit .git/hooks/
+
+Wheneven a "git commit" is attempted, if the ".git/hooks/pre-commit" script
+exists, it is run, and must "pass" (return status 0) for the commit to proceed.
+
+If the "pre-commit" in this directory script is copied (or linked) there, it
+will in turn invoke each of the test scripts in this directory, and will only
+permit the commit to proceed if all of them "pass".
+
+Ideally there should be a test script for each function or method.
+
+(Test scripts must be executable and have names that start with a digit and end
+with an alphanumeric are considered, so backups ending in '~', the "pre-commit"
+script, and this README are not considered.)

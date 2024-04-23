@@ -1,0 +1,97 @@
+#!/bin/bash
+
+new_filenames=()
+i=0
+
+while IFS= read -r -d '' 'new_filenames[i++]'
+do :
+done < <(
+        git diff --cached --name-only --diff-filter=A -z "$git_head"
+    )
+
+error_count=0
+
+check_patterns=(
+    allow_temp_filenames='*@(.sw?|.tmp)'
+    allow_backup_filenames='*@(~|.bak)'
+    allow_nonalphanumeric_filenames='*[^-a-zA-Z0-9_/.]*'
+)
+
+for p in "${check_patterns[@]}"
+do
+    override_flag=${p%%=*}
+    prohibit_pattern=${p#*=}
+
+    # Quick exclusion check
+    [[ ${new_filenames[*]} = *$prohibit_pattern* ]] ||
+     continue
+
+    # Thorough check: loop stops with 'false' status if any filename matches,
+    # or 'true' status if every filename did not match.
+    for n in "${new_filenames[@]}"
+    do
+        [[ $n != $prohibit_pattern ]] || ! break
+    done &&
+     continue
+
+    allow=$( git config --bool "hooks.$override_flag" ) &&
+     [[ $allow = true ]] &&
+      continue
+
+    ((++error_count))
+
+    printf >&2 '
+Error: attempt to add a prohibited filename matching "%s"
+
+If you know what you are doing you can disable this check using:
+
+  git config hooks.%s true
+
+Affected filenames:
+' "$prohibit_pattern" "$override_flag"
+
+    while IFS= read -r n
+    do
+        [[ $n != $prohibit_pattern ]] && printf '\t%s\n' "$n"
+    done <<< "$new_filenames"
+done
+
+
+exit $((error_count ? 1 : 0))
+
+if
+    [[ $new_filenames$'\n' = *@(~|.bak|.sw?|.tmp)$'\n'* ]] &&
+      ! {
+        allow=$( git config --bool hooks.allowbackupfiles ) &&
+        [[ $allow = true ]]
+      }
+then
+    cat 1>&2 <<\EOF ; exit 1
+Error: Attempt to add a backup or editor temp file (*~, *.bak, .*.sw?, *.tmp)
+
+If you know what you are doing you can disable this check using:
+
+  git config hooks.allowbackupfiles true
+EOF
+fi
+
+if
+    [[ $new_filenames = *[^-a-zA-Z0-9_/.]* ]] &&
+      ! {
+        allownonalphanumeric=$( git config --bool hooks.allownonalphanumeric ) &&
+        [[ $allownonalphanumeric = true ]]
+      }
+then
+    cat 1>&2 <<\EOF ; exit 1
+Error: Attempt to add a non-ASCII file name.
+
+This can cause problems if you want to work with people on other platforms.
+
+To be portable it is advisable to rename the file.
+
+If you know what you are doing you can disable this check using:
+
+  git config hooks.allownonalphanumeric true
+EOF
+
+fi
