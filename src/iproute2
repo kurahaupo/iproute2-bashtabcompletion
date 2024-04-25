@@ -45,9 +45,9 @@ _ip() {
     [[ $false = 0 ]] || local -ri false=0
 
     case $COMP_TYPE in
-        (63) (( ++__ip_comp_count >= 3 )) && COMP_TYPE=best ;;
-        (9)  (( __ip_comp_count = 1 )) ;;
-        (*)  (( __ip_comp_count = 0 )) ;;
+        (63)    (( ++__ip_comp_count >= 3 )) && COMP_TYPE=best ;;
+        (9)     (( __ip_comp_count = 1 )) ;;
+        (*)     (( __ip_comp_count = 0 )) ;;
     esac
     COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
 
@@ -259,9 +259,9 @@ _ip() {
             _p="${_p%%=*}"
             _p="${_p:-$_t}"
             COMPREPLY=( "${COMPREPLY[@]}" "$_p$__suffix" )
-            #[[ $COMP_TYPE = best ]] && return 0  # Unfortunately this doesn't get used;
-                                                  # after the first tab-key, the shell will always show a list, even if it (now)
-                                                  # has only one member
+            #[[ $COMP_TYPE = best ]] && return 0    # Unfortunately this doesn't get used;
+                                                    # after the first tab-key, the shell will always show a list, even if it (now)
+                                                    # has only one member
         done
     }
 
@@ -339,7 +339,7 @@ _ip() {
         then
             __ip_debug "Looking for IPv4 address"
             case $__val in
-                (*:*)       ;;
+                (*:*) ;;
                 (*.*.*.*)   __ip_match NUM -I'*.' -A --8bit ;;
                 (*)         __ip_match NUM -I'*.' -A --8bit -S. ;;
             esac
@@ -349,9 +349,9 @@ _ip() {
     __ip_match_addr() {
       # __ip_match ADDR "$@"
       # return $?
-        local accept_link= accept_ipv4= accept_ipv6= \
-              accept_prefix=false accept_default=false \
-              require_multicast=false require_unicast=false
+        local   accept_link= accept_ipv4= accept_ipv6= \
+                accept_prefix=false accept_default=false \
+                require_multicast=false require_unicast=false
         local __set_var=
         local __skip_seen=false _R= __seen_pref= _p
 
@@ -526,7 +526,7 @@ _ip() {
             __ip__cleanup_debug() {
                 # __ip__cleanup will call this just before returning from _ip
                 # If fd#7 is already open, assume it's dedicated for debug output
-                # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
+                # ${COMP_VERBOSE_INIT=$'\e[2J'}         # basic ANSI clear-screen
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\n' "${COMPREPLY[*]}"
             } >&7
@@ -620,19 +620,19 @@ _ip() {
 
                 (START)
                     __ip_match ANY -R -V \
-                            addr address=addr addrlabel link maddr monitor \
-                            mroute neigh ntable route rule tunnel \
-                            xfrm \
-                            -0='-family link' -4='-family inet' -6='-family inet6' \
-                            -B='-family bridge' -D='-family decnet' -I='-family ipx' \
-                            -batch      --batch=-batch              \
-                            -details    --details=-details          \
-                            -family     --family=-family            \
-                            -oneline    --oneline=-oneline          \
-                            -resolve    --resolve=-resolve          \
-                            -statistics --statistics=-statistics    \
-                            -timestamp  --timestamp=-timestamp      \
-                            -Version    --Version=-Version
+                                    addr address=addr addrlabel link maddr monitor           \
+                                    mroute neigh ntable route rule tunnel                    \
+                                    xfrm                                                     \
+                                    -0='-family link' -4='-family inet' -6='-family inet6'   \
+                                    -B='-family bridge' -D='-family decnet' -I='-family ipx' \
+                                    -batch      --batch=-batch                               \
+                                    -details    --details=-details                           \
+                                    -family     --family=-family                             \
+                                    -oneline    --oneline=-oneline                           \
+                                    -resolve    --resolve=-resolve                           \
+                                    -statistics --statistics=-statistics                     \
+                                    -timestamp  --timestamp=-timestamp                       \
+                                    -Version    --Version=-Version
                     __ip_debug_parsing_state P4
                     case $_V in
                         (-family)   STATE+=/FAMILY ;;
@@ -701,7 +701,7 @@ _ip() {
                     ;;
 
                 (addrlabel)
-                    __ip_match ANY -V add del flush  list show=list ?=help help ||
+                    __ip_match ANY -V add del flush list show=list ?=help help ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
@@ -842,12 +842,12 @@ _ip() {
                     case $_V in
                         (restart) ;;
                         (bitrate)                                                               STATE+=/NUM:1:1000000 ;;
-                        (restart-ms)                                                            STATE+=/NUMBER ;;
-                        (tq)                                                                    STATE+=/NUMBER ;;
-                        (sample-point)                                                          STATE+=/FLOAT ;;  # SAMPLE-POINT
-                        (phase-seg[12] | prop-seg)                                              STATE+=/NUM:1:8 ;;
-                        (sjw)                                                                   STATE+=/NUM:1:4 ;;
-                        (berr-reporting | listen-only | loopback | one-shot | triple-sampling)  STATE+=/ONOFF ;;
+                        (restart-ms)                                                            STATE+=/NUMBER        ;;
+                        (tq)                                                                    STATE+=/NUMBER        ;;
+                        (sample-point)                                                          STATE+=/FLOAT         ;;  # SAMPLE-POINT
+                        (phase-seg[12] | prop-seg)                                              STATE+=/NUM:1:8       ;;
+                        (sjw)                                                                   STATE+=/NUM:1:4       ;;
+                        (berr-reporting | listen-only | loopback | one-shot | triple-sampling)  STATE+=/ONOFF         ;;
                     esac
                     ;;
 
@@ -878,7 +878,7 @@ _ip() {
                     STATE+=+$_V
                     case $_V in
                         (add | delete) ;;
-                        (list | show)  ;;
+                        (list | show) ;;
                     esac
                     ;;
 
@@ -1052,9 +1052,9 @@ _ip() {
                         (dev)                       STATE+=/DEVICE        ;;
                         (equalize | onlink | pervasive) ;;
                         (metric)                    STATE+=/NUMBER31S     ;;
-                        (nexthop)                   unset ${!__ip_seen_*} ;;  # reset the "already seen" list
+                        (nexthop)                   unset ${!__ip_seen_*} ;;    # reset the "already seen" list
                         (proto)                     STATE+=/RTPROTO       ;;
-                        (realms)                    STATE+=/REALM         ;;  # TODO maybe this should be REALMPAIR?
+                        (realms)                    STATE+=/REALM         ;;    # TODO maybe this should be REALMPAIR?
                         (rto_min | rtt | rttvar)    STATE+=/TIME          ;;
                         (scope)                     STATE+=/SCOPE         ;;
                         (src | via)                 STATE+=/ADDR          ;;
@@ -1090,7 +1090,7 @@ _ip() {
                         (fwmark)                STATE+=/FWMARK+MASK ;;
                         (goto | pref | prio)    STATE+=/NUMBER      ;;
                         (lookup | table)        STATE+=/TABLE       ;;
-                        (not | prohibit | reject | unreachable)     ;;
+                        (not | prohibit | reject | unreachable) ;;
                         (realms)                STATE+=/REALMPAIR   ;;
                         (tos)                   STATE+=/TOS         ;;
                     esac
@@ -1231,7 +1231,7 @@ _ip() {
                 (FWMARK+MASK)
                     case $cur in
                         (*/*/*) false ;;
-                        (*)    __ip_match NUM -I'*/' --32bit ;;
+                        (*)     __ip_match NUM -I'*/' --32bit ;;
                     esac ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
