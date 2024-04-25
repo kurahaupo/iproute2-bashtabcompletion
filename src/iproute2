@@ -620,19 +620,19 @@ _ip() {
 
                 (START)
                     __ip_match ANY -R -V \
-                                  addr address=addr addrlabel link maddr monitor \
-                                  mroute neigh ntable route rule tunnel \
-                                  xfrm \
-                                  -0='-family link' -4='-family inet' -6='-family inet6' \
-                                  -B='-family bridge' -D='-family decnet' -I='-family ipx' \
-                                  -batch      --batch=-batch           \
-                                  -details    --details=-details       \
-                                  -family     --family=-family         \
-                                  -oneline    --oneline=-oneline       \
-                                  -resolve    --resolve=-resolve       \
-                                  -statistics --statistics=-statistics \
-                                  -timestamp  --timestamp=-timestamp   \
-                                  -Version    --Version=-Version
+                            addr address=addr addrlabel link maddr monitor \
+                            mroute neigh ntable route rule tunnel \
+                            xfrm \
+                            -0='-family link' -4='-family inet' -6='-family inet6' \
+                            -B='-family bridge' -D='-family decnet' -I='-family ipx' \
+                            -batch      --batch=-batch              \
+                            -details    --details=-details          \
+                            -family     --family=-family            \
+                            -oneline    --oneline=-oneline          \
+                            -resolve    --resolve=-resolve          \
+                            -statistics --statistics=-statistics    \
+                            -timestamp  --timestamp=-timestamp      \
+                            -Version    --Version=-Version
                     __ip_debug_parsing_state P4
                     case $_V in
                         (-family) STATE+=/FAMILY ;;
