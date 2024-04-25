@@ -590,7 +590,7 @@ _ip() {
     fi
 
     local __perform_expansion=false
-    for STATE in START ; do  # {{{
+    for STATE in START ; do # {{{
         # singleton outer "loop", so that "break 2" works in the inner loop
         for (( cword_index = 1 ; cword_index <= COMP_CWORD ; cword_index++ )) do    # {{{
 
@@ -1396,11 +1396,11 @@ _ip() {
                 (*)
                     __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur" ;;
 
-            esac  # }}}
+            esac    # }}}
 
             __ip_debug_parsing_state P35
 
-        done  # }}}
+        done    # }}}
 
         __ip_debug "COMPREPLY=[${COMPREPLY[*]}] (after compgen)"
 
@@ -1418,7 +1418,7 @@ _ip() {
 
         __ip__cleanup
         return 0
-    done  # }}} end singleton loop
+    done    # }}} end singleton loop
     COMPREPLY=()
     __ip_debug_parsing_state '***ABORT***'
     #__ip_unexpected "Lost sync? STATE=$STATE expect=$expecting cur=$__cur"
