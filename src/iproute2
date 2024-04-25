@@ -104,7 +104,7 @@ _ip() {
             printf '\n'
         else
             printf '%s\n' "$*"
-        fi >&3
+        fi >&7
     }
 
     #
@@ -380,7 +380,10 @@ _ip() {
         local __val="${__cur##$__ignore_prefix}"
 
         __ip_debug "Completing address starting with '$__cur'; will accept" $(
-                        for w in ipv4 ipv6 prefix link ; do eval \$accept_$w && printf '%s\n' $w ; done
+                        for w in ipv4 ipv6 prefix link
+                        do
+                            eval \$accept_$w && printf ' %s' "$w"
+                        done
                     )
 
         # Reject impossible things...
@@ -519,51 +522,70 @@ _ip() {
 
     if ${COMP_VERBOSE:+:} false
     then
-        if [[ -t 3 || -w /dev/fd/3 || -w /proc/self/fd/3 ]]
+        if [[ -t 7 || -w /dev/fd/7 || -w /proc/self/fd/7 ]]
         then
             __ip__cleanup_debug() {
                 # __ip__cleanup will call this just before returning from _ip
-                # If fd#3 is already open, assume it's dedicated for debug output
+                # If fd#7 is already open, assume it's dedicated for debug output
                 # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\n' "${COMPREPLY[*]}"
-            } >&3
-            printf >&3 %s "${COMP_VERBOSE_INIT:-$'\n################################\n'}"
+            } >&7
+            printf >&7 %b "${COMP_VERBOSE_INIT:-\n################################\n}"
         else
             # Otherwise, assuming that we're on an Xterm or compatible, display
             # debugging "above" the current line
-            : ${COMP_VERBOSE_TINT=$'\e[48;5;210;30m'}  # 256-colour background
-            exec 3>&2
-            printf >&3 '\e7'
+            : ${COMP_VERBOSE_TINT=$'\e[48;5;210;30m'}   # 256-colour background
+            exec 7>&2
+            printf >&7 '\e7'
             __ip__cleanup_debug() {
                 # __ip__cleanup will call this just before returning from _ip
-                exec 3>&-
+                exec 7>&-
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\e8' "${COMPREPLY[*]}"
-            } >&3
-            printf >&3 '\e[A\e[999I%s\e[1J\e[5H' "${COMP_VERBOSE_TINT}"
+            } >&7
+            printf >&7 '\e[A\e[999I%s\e[1J\e[5H' "${COMP_VERBOSE_TINT}"
         fi
-        printf >&3 'Completion START: ARGS=(%s) WORDS=(%s) CWORD=%s KEY=%s LINE=(%s) POINT=%s TYPE=%s WORDBREAKS=[%s]\n' \
+        printf >&7 'Completion START: ARGS=(%s) WORDS=(%s) CWORD=%s KEY=%s LINE=(%s) POINT=%s TYPE=%s WORDBREAKS=[%s]\n' \
                     "$*" "${COMP_WORDS[*]}" "$COMP_CWORD" "$COMP_KEY" \
                     "$COMP_LINE" "$COMP_POINT" "$COMP_TYPE" \
                     "${COMP_WORDBREAKS/$'\n'/\\n}"
 
         __ip__en() { (( cword_index >= COMP_CWORD-2 )) ; }
-        __ip_debug() { __ip__en && printf >&3 'Completion %s\n' "$*" ; }
+        __ip_debug() {
+            __ip__en &&
+            printf >&7 'Completion %s\n' "$*"
+        }
         __ip_debug_parsing_state() {
             __ip__en || return 0
-            local tag=$1 ; shift
-            printf >&3 'Completion STATE %s word[%s]=%s state=%s expecting=%s {%s}\n' "$tag" "$cword_index" "$cur" "$STATE" "$expecting" "$*"
+            local tag=$1
+            shift
+            printf >&7 'Completion STATE %s word[%s]=%s expecting=%s and-then=%s {%s}\n' \
+                        "$tag" "$cword_index" "$cur" "$expecting" "$STATE" "$*"
         }
-        __ip_debug_unexpected() { printf >&3 'Completion UNEXPECTED %s\n' "$*" ; }
-        __ip_error() { printf >&3 'Completion ERROR %s\n' "$*" ; break 3 ; }
-        __ip_unexpected() { printf >&3 'Completion UNEXPECTED %s\n' "$*" ; }
-        __ip_warning() { printf >&3 'Completion WARNING %s\n' "$*" ; }
+        __ip_debug_unexpected() {
+            printf >&7 'Completion UNEXPECTED %s\n' "$*"
+        }
+        __ip_error() {
+            printf >&7 'Completion ERROR %s\n' "$*"
+            break 3
+        }
+        __ip_unexpected() {
+            printf >&7 'Completion UNEXPECTED %s\n' "$*"
+        }
+        __ip_warning() {
+            printf >&7 'Completion WARNING %s\n' "$*"
+        }
     else
         __ip_debug() { : ; }
         __ip_debug_parsing_state() { : ; }
         __ip_debug_unexpected() { : ; }
-        __ip_error() { local t="  $*" ; local l=${#t} ; printf >&2 '\e[1K\e[33m%s\e[39m\e[%uD' "$t" "$l"; break 3 ; }
+        __ip_error() {
+            local t="  $*"
+            local l=${#t}
+            printf >&2 '\e[1K\e[33m%s\e[39m\e[%uD' "$t" "$l"
+            break 3
+        }
         __ip_unexpected() { : ; }
         __ip_warning() { : ; }
     fi
