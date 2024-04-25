@@ -114,13 +114,13 @@ _ip() {
     __ip_slurp() {
         local l
         while read l
-        do  l=${l//$'\t'/' '}          # squash tabs and spaces
-            l=${l//'                '/' '} # ''
-            l=${l//'        '/' '}     # ''
-            l=${l//'    '/' '}         # ''
-            l=${l//'  '/' '}           # ''
-            l=${l%%'#'*}               # strip comments
-            l=${l#"${l%%[^0-9]*} "}    # strip leading word comprised entirely of digits
+        do  l=${l//$'\t'/' '}               # squash tabs and spaces
+            l=${l//'                '/' '}  # ''
+            l=${l//'        '/' '}          # ''
+            l=${l//'    '/' '}              # ''
+            l=${l//'  '/' '}                # ''
+            l=${l%%'#'*}                    # strip comments
+            l=${l#"${l%%[^0-9]*} "}         # strip leading word comprised entirely of digits
             [[ -n $l ]] || continue
             printf '%s\n' "$l"
         done <$1
@@ -1015,13 +1015,13 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P29
                     case $_V in
-                        (exact)         STATE+=/PREFIX0   ;;
-                        (match)         STATE+=/PREFIX0   ;;
-                        (proto)         STATE+=/RTPROTO  ;;
-                        (root)          STATE+=/PREFIX0   ;;
-                        (scope)         STATE+=/SCOPE    ;;
-                        (table)         STATE+=/TABLE+   ;;
-                        (type)          STATE+=/RTYPE    ;;
+                        (exact)         STATE+=/PREFIX0 ;;
+                        (match)         STATE+=/PREFIX0 ;;
+                        (proto)         STATE+=/RTPROTO ;;
+                        (root)          STATE+=/PREFIX0 ;;
+                        (scope)         STATE+=/SCOPE   ;;
+                        (table)         STATE+=/TABLE+  ;;
+                        (type)          STATE+=/RTYPE   ;;
                     esac
                     ;;
 
