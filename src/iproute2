@@ -178,7 +178,7 @@ _ip() {
             case $__min:$__max in
                 (:?*)   (( __min = -__max )) ; __max= ;;
                 (*?:)   (( __max = -__min )) ; __min= ;;
-                (*?:?*) eval "(( __min = -__max, __min = -($(( __min ))) )) " ;;
+                (*?:?*) (( __min = -__max, __min = -($(( __min ))) )) ;;
             esac
         fi
 
