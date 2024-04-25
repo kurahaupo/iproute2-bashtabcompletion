@@ -677,10 +677,9 @@ _ip() {
 
                 (addr+*)
                     case ${expecting#*+} in
-                        (add | change | replace)    __ip_match ANY -R -V preferred_lft valid_lft ;&
-                        (flush | list | show)       __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
-                                                                         permanent primary scope secondary tentative to ;&
-                        (delete)                    __ip_match ANY -R -V dev ;;
+                        (add | change | replace)    __ip_match ANY -R -V anycast broadcast deprecated dev dynamic home label nodad peer permanent preferred_lft primary scope secondary tentative to valid_lft ;;
+                        (flush | list | show)       __ip_match ANY -R -V anycast broadcast deprecated dev dynamic home label nodad peer permanent               primary scope secondary tentative to ;;
+                        (delete)                    __ip_match ANY -R -V                              dev ;;
                         (*)                         false ;;
                     esac ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
