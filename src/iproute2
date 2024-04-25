@@ -1098,7 +1098,11 @@ _ip() {
                     ;;
 
                 (rule+list)
-                    __ip_match ANY '# no more args allowed' ' ' ;;  # no args allowed
+                    __ip_match ANY '# no more args allowed' ' ' ||  # no args allowed
+                    { (( __optional )) && __ip_pop_state && continue ; } ||
+                    { __ip_match_final && break ; } ||
+                    { __ip_match_failed && break 2 ; }
+                    ;;
 
                 (rule+*)
                     __ip_match ANY -R -V dev from fwmark goto iif=dev lookup not pref prio prohibit realms reject table \
