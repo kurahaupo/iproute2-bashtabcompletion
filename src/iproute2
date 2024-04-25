@@ -244,6 +244,7 @@ _ip() {
         __val=${__val#0x} __val=${__val#${__val%%[^0]*}}
         if (( ${#__neg} & 1 ))
         then
+            # Swap & negate (but leave blank as blank)
             case $__min:$__max in
                 (:?*)   (( __min = -__max )) ; __max= ;;
                 (*?:)   (( __max = -__min )) ; __min= ;;
