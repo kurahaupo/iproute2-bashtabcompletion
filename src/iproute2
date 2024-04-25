@@ -289,7 +289,7 @@ _ip() {
             case $__val in
                 (*:*/*) __ip_match NUM -I'*/' -B10 --min=1 --max=128 ; return ;;
                 (*/*)   __ip_match NUM -I'*/' -B10 --min=1 --max=32  ; return ;;
-                (*.*.*.*?|*::|*::*:*?|*:*:*:*:*:*:*:*) __ip_match CUR -S/ ;;
+                (*.*.*.*? | *:: | *::*:*? | *:*:*:*:*:*:*:*) __ip_match CUR -S/ ;;
             esac
         else
             case $__val in
@@ -301,7 +301,7 @@ _ip() {
         then
             __ip_debug "Looking for link-layer MAC (Ethernet) address"
             case :$__val in
-                (*::*|*:?:*|*[^:][^:][^:]*|*[^0-9a-f:]*) ;;
+                (*::* | *:?:* | *[^:][^:][^:]* | *[^0-9a-f:]*) ;;
                 (:??:??:??:??:??:??) __ip_match CUR ;;
                 (*:??)              __ip_match CUR -S: ;;
                 (*)                 __ip_match NUM -I'*:' -B16 --8bit ;;
@@ -635,17 +635,17 @@ _ip() {
                             -Version    --Version=-Version
                     __ip_debug_parsing_state P4
                     case $_V in
-                        (-family) STATE+=/FAMILY ;;
-                        (-0)      save_family=-Flink ;;
-                        (-4)      save_family=-Finet ;;
-                        (-6)      save_family=-Finet6 ;;
-                        (-B)      save_family=-Fbridge ;;
-                        (-D)      save_family=-Fdecnet ;;
-                        (-I)      save_family=-Fipx ;;
+                        (-family)   STATE+=/FAMILY ;;
+                        (-0)        save_family=-Flink ;;
+                        (-4)        save_family=-Finet ;;
+                        (-6)        save_family=-Finet6 ;;
+                        (-B)        save_family=-Fbridge ;;
+                        (-D)        save_family=-Fdecnet ;;
+                        (-I)        save_family=-Fipx ;;
 
-                        (-batch)  STATE+=/BATCHFILE ;;
-                        (-*|'')   ;;
-                        (*)       STATE=$_V ;;
+                        (-batch)    STATE+=/BATCHFILE ;;
+                        (-* | '')   ;;
+                        (*)         STATE=$_V ;;
                     esac
                     ;;
 
@@ -670,18 +670,18 @@ _ip() {
                     __ip_debug_parsing_state P6
                     STATE+="+$_V"
                     case $_V in
-                        (add|change|delete|replace) STATE+="/=dev/?PREFIX" ;;
-                        (flush|list|show) ;;
-                        (get) STATE+="/ADDR" ;;
+                        (add | change | delete | replace)   STATE+="/=dev/?PREFIX" ;;
+                        (flush | list | show) ;;
+                        (get)                               STATE+="/ADDR" ;;
                     esac
                     ;;
 
                 (addr+*)
                     case ${expecting#*+} in
-                        (add|change|replace) __ip_match ANY -R -V preferred_lft valid_lft ;&
-                        (flush|list|show)    __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
-                                                                  permanent primary scope secondary tentative to ;&
-                        (delete)             __ip_match ANY -R -V dev ;;
+                        (add | change | replace)    __ip_match ANY -R -V preferred_lft valid_lft ;&
+                        (flush | list | show)       __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
+                                                                         permanent primary scope secondary tentative to ;&
+                        (delete)                    __ip_match ANY -R -V dev ;;
                         (*) false ;;
                     esac ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
@@ -689,13 +689,13 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P7
                     case $_V in
-                        (anycast|broadcast)         STATE+=/ADDR     ;;
+                        (anycast | broadcast)       STATE+=/ADDR     ;;
                         (dev)                       STATE+=/DEVICE   ;;
                         (label)                     STATE+=/LABEL    ;;
-                        (preferred_lft|valid_lft)   STATE+=/LIFETIME ;;
-                        (peer|to)                   STATE+=/PREFIX   ;;
+                        (preferred_lft | valid_lft) STATE+=/LIFETIME ;;
+                        (peer | to)                 STATE+=/PREFIX   ;;
                         (scope)                     STATE+=/SCOPE    ;;
-                        (deprecated|dynamic|home|nodad|permanent|primary|secondary|tentative) ;;
+                        (deprecated | dynamic | home | nodad | permanent | primary | secondary | tentative) ;;
                     esac
                     (( ! __ip_seen_PREFIX )) && STATE+=/?PREFIX
                     ;;
@@ -736,8 +736,8 @@ _ip() {
                     __ip_debug_parsing_state P10
                     STATE+=+$_V
                     case $_V in
-                        (add)                  STATE+=/=link ;;
-                        (delete|set|show|list) STATE+=/DEVICE ;;
+                        (add)                           STATE+=/=link ;;
+                        (delete | set | show | list)    STATE+=/DEVICE ;;
                     esac
                     ;;
 
@@ -748,9 +748,9 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P11
                     case $_V in
-                        (addr|broadcast)    STATE+=/LLADDR ;;
+                        (addr | broadcast)  STATE+=/LLADDR ;;
                         (link)              STATE+=/DEVICE ;;
-                        (mtu|txqueuelen)    STATE+=/NUMBER ;;
+                        (mtu | txqueuelen)  STATE+=/NUMBER ;;
                         (name)              STATE+=/NAME ;;
                         (type)              STATE+=$_V+type ;;
                     esac
@@ -776,15 +776,15 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P13
                     case $_V in
-                        (addr|broadcast)      STATE+=/LLADDR    ;;
-                        (alias)               STATE+=/NAME      ;;
-                        (allmulticast|arp|dynamic|multicast|promisc|trailers) STATE+=/ONOFF ;;
-                        (mtu)                 STATE+=/NUMBER32  ;;
-                        (name)                STATE+=/NAME      ;;
-                        (netns)               STATE+=/NUMBER16  ;;
-                        (txqueuelen)          STATE+=/NUMBER8   ;;
-                        (up|down) ;;
-                        (vf)                  STATE+=+vf/NUMBER ;;
+                        (addr | broadcast)                                              STATE+=/LLADDR    ;;
+                        (alias)                                                         STATE+=/NAME      ;;
+                        (allmulticast | arp | dynamic | multicast | promisc | trailers) STATE+=/ONOFF ;;
+                        (mtu)                                                           STATE+=/NUMBER32  ;;
+                        (name)                                                          STATE+=/NAME      ;;
+                        (netns)                                                         STATE+=/NUMBER16  ;;
+                        (txqueuelen)                                                    STATE+=/NUMBER8   ;;
+                        (up | down) ;;
+                        (vf)                                                            STATE+=+vf/NUMBER ;;
                     esac
                     ;;
 
@@ -809,13 +809,13 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P15
                     case $_V in
-                        (id) STATE+=/NUM:1:4095 ;;
-                        (gvrp|loose_binding|reorder_hdr) STATE+=/ONOFF ;;
-                        (*qos-map) STATE+=/QOSMAP ;;
+                        (id)                                    STATE+=/NUM:1:4095 ;;
+                        (gvrp | loose_binding | reorder_hdr)    STATE+=/ONOFF ;;
+                        (*qos-map)                              STATE+=/QOSMAP ;;
                     esac
                     ;;
 
-                (link+show|link+list)
+                (link+show | link+list)
                     STATE=FINISH
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
@@ -840,14 +840,14 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P18
                     case $_V in
-                        (restart)       ;;
-                        (bitrate)       STATE+=/NUM:1:1000000 ;;
-                        (restart-ms)    STATE+=/NUMBER ;;
-                        (tq)            STATE+=/NUMBER ;;
-                        (sample-point)  STATE+=/FLOAT ;;  # SAMPLE-POINT
-                        (phase-seg[12]|prop-seg) STATE+=/NUM:1:8 ;;
-                        (sjw)           STATE+=/NUM:1:4 ;;
-                        (berr-reporting|listen-only|loopback|one-shot|triple-sampling) STATE+=/ONOFF ;;
+                        (restart) ;;
+                        (bitrate)                                                               STATE+=/NUM:1:1000000 ;;
+                        (restart-ms)                                                            STATE+=/NUMBER ;;
+                        (tq)                                                                    STATE+=/NUMBER ;;
+                        (sample-point)                                                          STATE+=/FLOAT ;;  # SAMPLE-POINT
+                        (phase-seg[12] | prop-seg)                                              STATE+=/NUM:1:8 ;;
+                        (sjw)                                                                   STATE+=/NUM:1:4 ;;
+                        (berr-reporting | listen-only | loopback | one-shot | triple-sampling)  STATE+=/ONOFF ;;
                     esac
                     ;;
 
@@ -877,8 +877,8 @@ _ip() {
                     __ip_debug_parsing_state P19
                     STATE+=+$_V
                     case $_V in
-                        (add|delete) ;;
-                        (list|show)  ;;
+                        (add | delete) ;;
+                        (list | show)  ;;
                     esac
                     ;;
 
@@ -910,7 +910,7 @@ _ip() {
                     __ip_debug_parsing_state P22
                     STATE+=+$_V
                     case $_V in
-                        (show|list) STATE+=+show/PREFIX0 ;;
+                        (show | list)   STATE+=+show/PREFIX0 ;;
                     esac
                     ;;
 
@@ -934,8 +934,8 @@ _ip() {
                     __ip_debug_parsing_state P24
                     STATE+=+$_V
                     case $_V in
-                        (add|change|delete|replace) STATE+=/ADDR ;;
-                        (flush|list|show) ;;
+                        (add | change | delete | replace)   STATE+=/ADDR ;;
+                        (flush | list | show) ;;
                     esac
                     ;;
 
@@ -969,10 +969,10 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P27
                     case $_V in
-                        (add|append|change|replace) STATE+=+A/=dev/PREFIX0/route+R ;;
-                        (delete)                    STATE+=+A/=dev/PREFIX0/route+R ;;
-                        (get)                       STATE+=+get/ADDR   ;;
-                        (flush|list|show)           STATE+=+L ;;
+                        (add | append | change | replace)   STATE+=+A/=dev/PREFIX0/route+R ;;
+                        (delete)                            STATE+=+A/=dev/PREFIX0/route+R ;;
+                        (get)                               STATE+=+get/ADDR   ;;
+                        (flush | list | show)               STATE+=+L ;;
                     esac
                     ;;
 
@@ -992,19 +992,19 @@ _ip() {
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     case $_V in
-                        (default)       STATE+= ;;
-                        (via)           STATE+=/ADDR ;;
-                        (dev|iif|oif)   STATE+=/DEVICE ;;
-                        (weight)        STATE+=/NUMBER ;;
-                        (blackhole)     STATE+=/PREFIX0 ;;
-                        (broadcast)     STATE+=/PREFIX0 ;;
-                        (local)         STATE+=/PREFIX0 ;;
-                        (multicast)     STATE+=/PREFIX0 ;;
-                        (nat)           STATE+=/PREFIX0 ;;
-                        (prohibit)      STATE+=/PREFIX0 ;;
-                        (throw)         STATE+=/PREFIX0 ;;
-                        (unicast)       STATE+=/PREFIX0 ;;
-                        (unreachable)   STATE+=/PREFIX0 ;;
+                        (default)           STATE+= ;;
+                        (via)               STATE+=/ADDR ;;
+                        (dev | iif | oif)   STATE+=/DEVICE ;;
+                        (weight)            STATE+=/NUMBER ;;
+                        (blackhole)         STATE+=/PREFIX0 ;;
+                        (broadcast)         STATE+=/PREFIX0 ;;
+                        (local)             STATE+=/PREFIX0 ;;
+                        (multicast)         STATE+=/PREFIX0 ;;
+                        (nat)               STATE+=/PREFIX0 ;;
+                        (prohibit)          STATE+=/PREFIX0 ;;
+                        (throw)             STATE+=/PREFIX0 ;;
+                        (unicast)           STATE+=/PREFIX0 ;;
+                        (unreachable)       STATE+=/PREFIX0 ;;
                     esac
                     ;;
 
@@ -1032,9 +1032,9 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P30
                     case $_V in
-                        (from)          STATE+=/=iif/ADDR ;;
-                        (dev|iif|oif)   STATE+=/DEVICE    ;;
-                        (tos)           STATE+=/TOS       ;;
+                        (from)              STATE+=/=iif/ADDR ;;
+                        (dev | iif | oif)   STATE+=/DEVICE    ;;
+                        (tos)               STATE+=/TOS       ;;
                     esac
                     ;;
 
@@ -1047,21 +1047,21 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P31
                     case $_V in
-                        (advmss|weight)     STATE+=/NUMBER16 ;;
-                        (cwnd|initcwnd|mtu) STATE+=/NUMBER32 ;;
-                        (dev)               STATE+=/DEVICE   ;;
-                        (equalize|onlink|pervasive)         ;;
-                        (metric)            STATE+=/NUMBER31S ;;
-                        (nexthop)           unset ${!__ip_seen_*} ;;  # reset the "already seen" list
-                        (proto)             STATE+=/RTPROTO  ;;
-                        (realms)            STATE+=/REALM    ;;  # TODO maybe this should be REALMPAIR?
-                        (rto_min|rtt|rttvar) STATE+=/TIME    ;;
-                        (scope)             STATE+=/SCOPE    ;;
-                        (src|via)           STATE+=/ADDR     ;;
-                        (ssthresh)          STATE+=/NUMBER   ;;
-                        (table)             STATE+=/TABLE    ;;
-                        (tos)               STATE+=/TOS      ;;
-                        (window)            STATE+=/NUMBER8  ;;
+                        (advmss | weight)           STATE+=/NUMBER16      ;;
+                        (cwnd | initcwnd | mtu)     STATE+=/NUMBER32      ;;
+                        (dev)                       STATE+=/DEVICE        ;;
+                        (equalize | onlink | pervasive) ;;
+                        (metric)                    STATE+=/NUMBER31S     ;;
+                        (nexthop)                   unset ${!__ip_seen_*} ;;  # reset the "already seen" list
+                        (proto)                     STATE+=/RTPROTO       ;;
+                        (realms)                    STATE+=/REALM         ;;  # TODO maybe this should be REALMPAIR?
+                        (rto_min | rtt | rttvar)    STATE+=/TIME          ;;
+                        (scope)                     STATE+=/SCOPE         ;;
+                        (src | via)                 STATE+=/ADDR          ;;
+                        (ssthresh)                  STATE+=/NUMBER        ;;
+                        (table)                     STATE+=/TABLE         ;;
+                        (tos)                       STATE+=/TOS           ;;
+                        (window)                    STATE+=/NUMBER8       ;;
                     esac
                     ;;
 
@@ -1085,14 +1085,14 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P33
                     case $_V in
-                        (dev)           STATE+=/DEVICE   ;;
-                        (from|to)       STATE+=/PREFIX0  ;;
-                        (fwmark)        STATE+=/FWMARK+MASK ;;
-                        (goto|pref|prio) STATE+=/NUMBER  ;;
-                        (lookup|table)  STATE+=/TABLE    ;;
-                        (not|prohibit|reject|unreachable) ;;
-                        (realms)        STATE+=/REALMPAIR ;;
-                        (tos)           STATE+=/TOS      ;;
+                        (dev)                   STATE+=/DEVICE      ;;
+                        (from | to)             STATE+=/PREFIX0     ;;
+                        (fwmark)                STATE+=/FWMARK+MASK ;;
+                        (goto | pref | prio)    STATE+=/NUMBER      ;;
+                        (lookup | table)        STATE+=/TABLE       ;;
+                        (not | prohibit | reject | unreachable)     ;;
+                        (realms)                STATE+=/REALMPAIR   ;;
+                        (tos)                   STATE+=/TOS         ;;
                     esac
                     ;;
 
@@ -1117,16 +1117,16 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P34
                     case $_V in
-                        (icsum|iseq|ocsum|oseq|nopmtudisc|pmtudisc) ;;
+                        (icsum | iseq | ocsum | oseq | nopmtudisc | pmtudisc) ;;
                         (6rd-reset) ;;
-                        (6rd-*|local|prl-*|remote)
-                                        STATE+=/ADDR    ;;
-                        (dev|oif)       STATE+=/DEVICE  ;;
-                        (ikey|okey)     STATE+=/KEY     ;;
-                        (mode)          STATE+=/TMODE   ;;
-                        (name)          STATE+=/NAME    ;;
-                        (tos)           STATE+=/TOS     ;;
-                        (ttl)           STATE+=/TTL     ;;
+                        (6rd-* | local | prl-* | remote)
+                                        STATE+=/ADDR   ;;
+                        (dev | oif)     STATE+=/DEVICE ;;
+                        (ikey | okey)   STATE+=/KEY    ;;
+                        (mode)          STATE+=/TMODE  ;;
+                        (name)          STATE+=/NAME   ;;
+                        (tos)           STATE+=/TOS    ;;
+                        (ttl)           STATE+=/TTL    ;;
                     esac
                     ;;
 
@@ -1312,8 +1312,8 @@ _ip() {
 
                 (QOSMAP)
                     case $cur in
-                        (*[^0-9:]*|*:*:*) false ;;
-                        (*)   __ip_match NUM -I'*:' ;;
+                        (*[^0-9:]* | *:*:*) false ;;
+                        (*)                 __ip_match NUM -I'*:' ;;
                     esac ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
