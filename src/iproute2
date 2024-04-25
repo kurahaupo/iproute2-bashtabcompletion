@@ -166,9 +166,9 @@ _ip() {
         if [[ ${__radix:?'Radix not set!'} = auto ]]
         then
             case $__val in
-                (0x*) __radix=16 ;;
-                (0*)  __radix=8 ;;
-                (*)   __radix=10 ;;
+                (0x*)   __radix=16 ;;
+                (0*)    __radix=8 ;;
+                (*)     __radix=10 ;;
             esac
         fi
 
@@ -302,9 +302,9 @@ _ip() {
             __ip_debug "Looking for link-layer MAC (Ethernet) address"
             case :$__val in
                 (*::* | *:?:* | *[^:][^:][^:]* | *[^0-9a-f:]*) ;;
-                (:??:??:??:??:??:??) __ip_match CUR ;;
-                (*:??)              __ip_match CUR -S: ;;
-                (*)                 __ip_match NUM -I'*:' -B16 --8bit ;;
+                (:??:??:??:??:??:??)    __ip_match CUR ;;
+                (*:??)                  __ip_match CUR -S: ;;
+                (*)                     __ip_match NUM -I'*:' -B16 --8bit ;;
             esac
         fi
 
@@ -316,11 +316,11 @@ _ip() {
 
             # one 16-bit block
             case $__val in
-                (*:*:*:*:*:*:*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR ;;                      # whole last block?
-                (*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]) __ip_match CUR    -S: ;;                           # whole middle block?
-                (*:*:*:*:*:*:*:*)   __ip_match NUM -I'*:' -B16 --16bit     ;;                           # last block?
-                (*:*)               __ip_match NUM -I'*:' -B16 --16bit -S: ;;                           # middle block
-                (*)                 __ip_match NUM        -B16 --16bit -S: --min=0x2000 --max=0x3fff ;; # first block?
+                (*:*:*:*:*:*:*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f])    __ip_match CUR                                                   ;; # whole last block?
+                (*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f])                __ip_match CUR   -S:                                             ;; # whole middle block?
+                (*:*:*:*:*:*:*:*)                                   __ip_match NUM -I'*:' -B16 --16bit                               ;; # last block?
+                (*:*)                                               __ip_match NUM -I'*:' -B16 --16bit -S:                           ;; # middle block
+                (*)                                                 __ip_match NUM        -B16 --16bit -S: --min=0x2000 --max=0x3fff ;; # first block?
             esac
 
             # embedded IPv4?
@@ -636,16 +636,16 @@ _ip() {
                     __ip_debug_parsing_state P4
                     case $_V in
                         (-family)   STATE+=/FAMILY ;;
-                        (-0)        save_family=-Flink ;;
-                        (-4)        save_family=-Finet ;;
-                        (-6)        save_family=-Finet6 ;;
+                        (-0)        save_family=-Flink   ;;
+                        (-4)        save_family=-Finet   ;;
+                        (-6)        save_family=-Finet6  ;;
                         (-B)        save_family=-Fbridge ;;
                         (-D)        save_family=-Fdecnet ;;
-                        (-I)        save_family=-Fipx ;;
+                        (-I)        save_family=-Fipx    ;;
 
-                        (-batch)    STATE+=/BATCHFILE ;;
-                        (-* | '')   ;;
-                        (*)         STATE=$_V ;;
+                        (-batch)    STATE+=/BATCHFILE    ;;
+                        (-* | '') ;;
+                        (*)         STATE=$_V            ;;
                     esac
                     ;;
 
@@ -682,7 +682,7 @@ _ip() {
                         (flush | list | show)       __ip_match ANY -R -V anycast broadcast deprecated dynamic home label nodad peer \
                                                                          permanent primary scope secondary tentative to ;&
                         (delete)                    __ip_match ANY -R -V dev ;;
-                        (*) false ;;
+                        (*)                         false ;;
                     esac ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
@@ -722,9 +722,9 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P9 $_V
                     case $_V in
-                        (prefix)  STATE+=/PREFIX ;;
-                        (dev)     STATE+=/DEVICE ;;
-                        (label)   STATE+=/NUMBER ;;
+                        (prefix)    STATE+=/PREFIX ;;
+                        (dev)       STATE+=/DEVICE ;;
+                        (label)     STATE+=/NUMBER ;;
                     esac
                     ;;
 
@@ -763,8 +763,8 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P12
                     case $_V in
-                        (link)              STATE+=/DEVICE ;;
-                        (type)              STATE+=+$_V+type ;;
+                        (link)  STATE+=/DEVICE ;;
+                        (type)  STATE+=+$_V+type ;;
                     esac
                     ;;
 
@@ -778,7 +778,7 @@ _ip() {
                     case $_V in
                         (addr | broadcast)                                              STATE+=/LLADDR    ;;
                         (alias)                                                         STATE+=/NAME      ;;
-                        (allmulticast | arp | dynamic | multicast | promisc | trailers) STATE+=/ONOFF ;;
+                        (allmulticast | arp | dynamic | multicast | promisc | trailers) STATE+=/ONOFF     ;;
                         (mtu)                                                           STATE+=/NUMBER32  ;;
                         (name)                                                          STATE+=/NAME      ;;
                         (netns)                                                         STATE+=/NUMBER16  ;;
@@ -795,10 +795,10 @@ _ip() {
                     { __ip_match_failed && break 2 ; }
                     __ip_debug_parsing_state P14
                     case $_V in
-                        (mac)  STATE+=/LLADDR ;;
-                        (qos)  STATE+=/NUMBER8 ;;
-                        (rate) STATE+=/RATE ;;
-                        (vlan) STATE=link+set+VLAN/=id ;;
+                        (mac)   STATE+=/LLADDR ;;
+                        (qos)   STATE+=/NUMBER8 ;;
+                        (rate)  STATE+=/RATE ;;
+                        (vlan)  STATE=link+set+VLAN/=id ;;
                     esac
                     ;;
 
