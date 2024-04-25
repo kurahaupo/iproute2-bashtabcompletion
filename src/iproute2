@@ -72,7 +72,7 @@ _ip() {
     __ip__cleanup() {
         local -a __ip__cc=()
         readarray -t __ip__cc < <( declare -F )
-        __ip__cc=( "${__ip__cc[@]##*\ }" )
+        __ip__cc=( "${__ip__cc[@]##*\ }" )  # trim off leading "declare -f " or similar
         local __ip__c __ip__ci
         for __ip__ci in "${!__ip__cc[@]}"
         do
@@ -522,6 +522,7 @@ _ip() {
         if [[ -t 3 || -w /dev/fd/3 || -w /proc/self/fd/3 ]]
         then
             __ip__cleanup_debug() {
+                # __ip__cleanup will call this just before returning from _ip
                 # If fd#3 is already open, assume it's dedicated for debug output
                 # ${COMP_VERBOSE_INIT=$'\e[2J'}          # basic ANSI clear-screen
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
@@ -535,6 +536,7 @@ _ip() {
             exec 3>&2
             printf >&3 '\e7'
             __ip__cleanup_debug() {
+                # __ip__cleanup will call this just before returning from _ip
                 exec 3>&-
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\e8' "${COMPREPLY[*]}"
