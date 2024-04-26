@@ -642,7 +642,6 @@ _ip() {
                         (-B)        save_family=-Fbridge ;;
                         (-D)        save_family=-Fdecnet ;;
                         (-I)        save_family=-Fipx    ;;
-
                         (-batch)    STATE+=/BATCHFILE    ;;
                         (-* | '') ;;
                         (*)         STATE=$_V            ;;
