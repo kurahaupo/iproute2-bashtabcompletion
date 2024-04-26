@@ -209,10 +209,9 @@ _ip() {
     }
 
     #
-    # __ip_match NUM [ [--max=N] [--min=N] | --[signed-]N-bit ]
+    # __ip_match [-Iprefix] [-Ssuffix] [-V[varname]]
+    #            NUM [ [--max=N] [--min=N] | --[signed-]N-bit ]
     #                [-A | -Bauto | -BN]
-    #                [-Iprefix] [-Ssuffix]
-    #                [-V[varname]]
     #
 
     # chk_NUM - make very basic check for a number, and
@@ -325,12 +324,58 @@ _ip() {
 
     #
     # Match a valid address or (if permitted) a valid prefix.
-    # __ip_match ADDR [-0|-4|-6]
-    #                [-Iprefix] [-Ssuffix]
-    #                [-V[varname]]
+    # __ip_match [-Iprefix] [-Ssuffix] [-V[varname]]
+    #            ADDR [-F{link|inet|inet6|dual|any}] [-m|-u] [-p|-pd]
     #
 
+    __ip_pre_ADDR() {
+        while [[ $1 = -* ]]
+        do
+            case $1 in
+                (-Fany)     accept_any=true ;;
+                (-Fdual)    accept_any=false accept_ipv4=true accept_ipv6=true ;;
+                (-Finet)    accept_any=false accept_ipv4=true ;;
+                (-Finet6)   accept_any=false accept_ipv6=true ;;
+                (-Flink)    accept_any=false accept_link=true ;;
+                (-m)        require_multicast=true ;;
+                (-p)        accept_prefix=1 ;;
+                (-pd)       accept_prefix=2 ;;
+                (-u)        require_unicast=true ;;
+                (-F*)       __ip_unexpected "Family '${1#-?}' is not supported" ; return 2 ;;
+                (*)         __ip_error "Invalid option '$1' to __ip_match ADDR" ; return 2 ;;
+            esac
+            shift
+        done
+
+        __ip_debug "Completing address starting with '$__val'; will accept" $(
+                        for w in ipv4 ipv6 prefix link
+                        do
+                            (( accept_$w )) && printf ' %s' "$w"
+                        done
+                    )
+
+        # Reject impossible things...
+        if [[ ( $__val = *[^0-9a-f:./]* && default != "$__val"* ) ||
+              $__val = *:*:*:*:*:*:*:*:* ||
+              $__val = *:::* ||
+              $__val = *::*::* ||
+              $__val = *.*.*.*.* ||
+              $__val = *.*[^0-9./]* ||
+              $__val = */*[^0-9]* ]]
+        then
+            __ip_warning "Cannot match '$__val' as any type of address"
+            return 1
+        fi
+    }
+
     __ip_chk_ADDR() {
+
+        local   accept_ipv4=accept_any accept_ipv6=accept_any \
+                accept_link=accept_any accept_any=true accept_prefix=0 \
+                require_multicast=false require_unicast=false
+
+        __ip_pre_ADDR "$@" || return
+
         (( accept_prefix > 1 )) && [[ default = "$__val"* ]] && return
 
         case $__val in
@@ -355,6 +400,12 @@ _ip() {
     }
 
     __ip_exp_ADDR() {
+
+        local   accept_link= accept_ipv4= accept_ipv6= accept_prefix=0 \
+                require_multicast=false require_unicast=false
+
+        __ip_pre_ADDR "$@" || return
+
         # Accept "default" keyword, if appropriate
         if (( accept_prefix > 1 ))
         then
@@ -426,73 +477,6 @@ _ip() {
         fi
     }
 
-    __ip_match_addr() {
-      # __ip_match ADDR "$@"
-      # return $?
-        local   accept_link= accept_ipv4= accept_ipv6= accept_prefix=0 \
-                require_multicast=false require_unicast=false
-        local __set_var=
-        local __skip_seen=false __seen_pref= _p
-
-        while [[ $1 = -* ]]
-        do
-            case $1 in
-                ( -Fdual )          accept_ipv4=true accept_ipv6=true ;;
-                ( -Finet  )         accept_ipv4=true ;;
-                ( -Finet6  )        accept_ipv6=true ;;
-                ( -Flink  )         accept_link=true ;;
-              # ( -F*)              __ip_unexpected "Family '${1#-?}' is not supported" ; return 0 ;;
-                ( -m )              require_multicast=true ;;
-                ( -p )              accept_prefix=1 ;;
-                ( -pd )             accept_prefix=2 ;;
-                ( -R* )             __skip_seen=true _p=${1#-?}
-                                    __seen_pref=__ip_seen_${_p:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
-                ( -V* )             _p=${1#-?} __set_var=${_p:-_V} ;;
-                (*)                 __ip_error "Invalid option '$1' to __ip_match_addr" ; break 3 ;;
-            esac
-            shift
-        done
-        : ${accept_link:=false} ${accept_ipv4=false} ${accept_ipv6=false}
-
-        local __cur="${COMP_WORDS[cword_index]}"
-        local __val="${__cur##$__ignore_prefix}"
-
-        __ip_debug "Completing address starting with '$__cur'; will accept" $(
-                        for w in ipv4 ipv6 prefix link
-                        do
-                            (( accept_$w )) && printf ' %s' "$w"
-                        done
-                    )
-
-        # Reject impossible things...
-        if [[ ( $__cur = *[^0-9a-f:./]* && default != "$__cur"* ) ||
-              $__cur = *:*:*:*:*:*:*:*:* ||
-              $__cur = *:::* ||
-              $__cur = *::*::* ||
-              $__cur = *.*.*.*.* ||
-              $__cur = *.*[^0-9./]* ||
-              $__cur = */*[^0-9]* ]]
-        then
-            __ip_warning "Cannot match '$__cur' as any type of address"
-            return 1
-        fi
-
-        if (( cword_index == COMP_CWORD ))
-        then
-            __ip_debug "EXPAND-ADDR $*"
-            __ip_exp_ADDR "$@"
-            return 1
-        else
-            __ip_debug "CHECK-ADDR $*"
-            __ip_chk_ADDR "$@" || return $?
-            [[ -n $__set_var ]] && {
-                __ip_debug "SETVAR saving ADDR '$__cur' into $__set_var"
-                printf -v "$__set_var" %s "$__cur"
-            }
-            return 0
-        fi
-    }
-
     #
     # Due to changes in Bash v4.4, "continue" and "break" can no longer be used
     # in functions to control a loop that calls those functions. Therefore each
@@ -554,7 +538,7 @@ _ip() {
                                     __seen_pref=__ip_seen_${__arg:-${expecting//[^_0-9a-zA-Z]/__}}___ ;;
                 ( -S* )             __suffix=${1#-?} ;;
                 ( -V* )             __arg=${1#-?} __set_var=${__arg:-_V} ;;
-                (*)                 __ip_error "Invalid option '$1' to __ip_match[$_w]" ;;
+                (*)                 __ip_error "Invalid option '$1' to __ip_match[$_w]" ; return 2 ;;
             esac
             shift
         done
@@ -1196,7 +1180,7 @@ _ip() {
                     ;;
 
                 (KEY)
-                    __ip_match_addr -Finet ||
+                    __ip_match ADDR -Finet ||
                     __ip_match NUM ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
@@ -1250,28 +1234,28 @@ _ip() {
                     ;;
 
                 (ADDR)
-                    __ip_match_addr $save_family ||
+                    __ip_match ADDR $save_family ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (MADDR)
-                    __ip_match_addr $save_family -m ||
+                    __ip_match ADDR $save_family -m ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (LLADDR)
-                    __ip_match_addr -Flink ||
+                    __ip_match ADDR -Flink ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
                     ;;
 
                 (PREFIX0)
-                    __ip_match_addr $save_family -pd ||
+                    __ip_match ADDR $save_family -pd ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
@@ -1279,7 +1263,7 @@ _ip() {
                     ;;
 
                 (PREFIX)
-                    __ip_match_addr $save_family -p ||
+                    __ip_match ADDR $save_family -p ||
                     { (( __optional )) && __ip_pop_state && continue ; } ||
                     { __ip_match_final && break ; } ||
                     { __ip_match_failed && break 2 ; }
