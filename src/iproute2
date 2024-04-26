@@ -65,11 +65,11 @@ _ip() {
 
     # Bash has no way to localize functions, and localizing variables is
     # fraught, so upon return:
-    # 1. All other functions with names matching __ip__cleanup* will be called
+    # 1. All other functions with names matching __ip_deferred* will be called
     #    in natural collation order; and then
     # 2. All functions and variables with names matching __ip_* will be unset
     #    (which includes this function, of course)
-    __ip__cleanup() {
+    __ip_deferred() {
         local -a __ip__cc=()
         readarray -t __ip__cc < <( declare -F )
         __ip__cc=( "${__ip__cc[@]##*\ }" )  # trim off leading "declare -f " or similar
@@ -77,7 +77,7 @@ _ip() {
         for __ip__ci in "${!__ip__cc[@]}"
         do
             __ip__c=${__ip__cc[__ip__ci]}
-            [[ $__ip__c = __ip__cleanup?* ]] && "$__ip__c"
+            [[ $__ip__c = __ip_deferred?* ]] && "$__ip__c"
             [[ $__ip__c = __ip_* ]] || unset "__ip__cc[__ip__ci]"
         done
         unset -f "${__ip__cc[@]}"
@@ -487,7 +487,7 @@ _ip() {
             __ip_chk_ADDR "$@" || return $?
             [[ -n $__set_var ]] && {
                 __ip_debug "SETVAR saving ADDR '$__cur' into $__set_var"
-                eval "$__set_var=\"\$__cur\""
+                printf -v "$__set_var" %s "$__cur"
             }
             return 0
         fi
@@ -576,7 +576,7 @@ _ip() {
             __ip_chk_$_w "$@" || return $?
             [[ -n $__set_var ]] && {
                 __ip_debug "SETVAR saving $_w '$__val' into $__set_var"
-                eval "$__set_var=\"\$__val\""
+                printf -v "$__set_var" %s "$__val"
             }
             return 0
         fi
@@ -588,8 +588,8 @@ _ip() {
     then
         if [[ -t 7 || -w /dev/fd/7 || -w /proc/self/fd/7 ]]
         then
-            __ip__cleanup_debug() {
-                # __ip__cleanup will call this just before returning from _ip
+            __ip_deferred_debug() {
+                # __ip_deferred will call this just before returning from _ip
                 # If fd#7 is already open, assume it's dedicated for debug output
                 # ${COMP_VERBOSE_INIT=$'\e[2J'}         # basic ANSI clear-screen
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
@@ -602,8 +602,8 @@ _ip() {
             : ${COMP_VERBOSE_TINT=$'\e[48;5;210;30m'}   # 256-colour background
             exec 7>&2
             printf >&7 '\e7'
-            __ip__cleanup_debug() {
-                # __ip__cleanup will call this just before returning from _ip
+            __ip_deferred_debug() {
+                # __ip_deferred will call this just before returning from _ip
                 exec 7>&-
                 printf 'Completion SEEN: %s\n' "${!__ip_seen_*}"
                 printf 'Completion END: COMPREPLY=(%s)\e[49;39;0m\e8' "${COMPREPLY[*]}"
@@ -1460,7 +1460,7 @@ _ip() {
 
                 (*)
                     __ip_error "Lost sync? STATE=$STATE expect=$expecting cur=$cur"
-                    __ip__cleanup
+                    __ip_deferred
                     return
                     ;;
 
@@ -1484,7 +1484,7 @@ _ip() {
             done
         fi
 
-        __ip__cleanup
+        __ip_deferred
         return 0
     done    # }}} end singleton loop
     COMPREPLY=()
@@ -1493,7 +1493,7 @@ _ip() {
 
     [[ $COMP_TYPE = best ]] && COMP_TYPE=9
 
-    __ip__cleanup
+    __ip_deferred
     return 1
 }
 
